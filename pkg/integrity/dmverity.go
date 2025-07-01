@@ -1,4 +1,4 @@
-package dmverity
+package integrity
 
 import (
 	"context"
