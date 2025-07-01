@@ -1,9 +1,11 @@
 package image
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"sort"
 	"strconv"
@@ -17,6 +19,12 @@ const (
 	annoNameSignature = "io.deckhouse.deliverykit.signature"
 	annoNameCert      = "io.deckhouse.deliverykit.cert"
 	annoNameChain     = "io.deckhouse.deliverykit.chain"
+)
+
+var (
+	ErrNoSignatureAnnotation  = errors.New("no signature annotation")
+	ErrInvalidCertAnnotation  = errors.New("cert annotation contains invalid certificate")
+	ErrInvalidChainAnnotation = errors.New("chain annotation contains invalid certificate chain")
 )
 
 func GetSignatureAnnotationsForImageManifest(_ context.Context, sv *signver.SignerVerifier, manifest *v1.Manifest) (map[string]string, error) {
@@ -38,7 +46,37 @@ func GetSignatureAnnotationsForImageManifest(_ context.Context, sv *signver.Sign
 }
 
 func VerifyImageManifestSignature(_ context.Context, sv *signver.SignerVerifier, manifest *v1.Manifest) error {
-	panic("not implemented yet")
+	// Verify signature. Because sv is already has the private key it allows us to derive the public key for verification.
+	if signatureBase64Encoded, ok := manifest.Annotations[annoNameSignature]; !ok {
+		return ErrNoSignatureAnnotation
+	} else {
+		signatureBytes, err := base64.StdEncoding.DecodeString(signatureBase64Encoded)
+		if err != nil {
+			return fmt.Errorf("unable to decode image manifest singnature from base64 encoding: %w", err)
+		}
+
+		signatureReader := bytes.NewReader(signatureBytes)
+		messageReader := strings.NewReader(getManifestPayloadHash(manifest))
+		if err = sv.VerifySignature(signatureReader, messageReader); err != nil {
+			return fmt.Errorf("unable to verify image manifest signature: %w", err)
+		}
+	}
+
+	// (Optional) Validate cert is contained in annotation is the same cert as sv.Cert is.
+	if certBase64Encoded, ok := manifest.Annotations[annoNameCert]; ok {
+		if certBase64Encoded != base64.StdEncoding.EncodeToString(sv.Cert) {
+			return ErrInvalidCertAnnotation
+		}
+	}
+
+	// (Optional) Validate chain is contained in annotation is the same cert chain as sv.Chain is.
+	if chainBase64Encoded, ok := manifest.Annotations[annoNameChain]; ok {
+		if chainBase64Encoded != base64.StdEncoding.EncodeToString(sv.Chain) {
+			return ErrInvalidChainAnnotation
+		}
+	}
+
+	return nil
 }
 
 func getManifestPayloadHash(manifest *v1.Manifest) string {
