@@ -26,11 +26,16 @@ func GetSignatureAnnotationsForImageManifest(_ context.Context, sv *signver.Sign
 		return nil, err
 	}
 	
-	return map[string]string{
-		annoNameSignature: base64.StdEncoding.EncodeToString(signedPayload),
-		annoNameCert:      base64.StdEncoding.EncodeToString(sv.Cert),
-		annoNameChain:     base64.StdEncoding.EncodeToString(sv.Chain),
-	}, nil
+	annotations := make(map[string]string)
+	annotations[annoNameSignature] = base64.StdEncoding.EncodeToString(signedPayload)
+	if sv.Cert != nil {
+		annotations[annoNameCert] = base64.StdEncoding.EncodeToString(sv.Cert)
+	}
+	if sv.Chain != nil {
+		annotations[annoNameChain] = base64.StdEncoding.EncodeToString(sv.Chain)
+	}
+	
+	return annotations, nil
 }
 
 func VerifyImageManifestSignature(_ context.Context, sv *signver.SignerVerifier, manifest *v1.Manifest) error {
