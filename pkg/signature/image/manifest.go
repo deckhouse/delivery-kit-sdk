@@ -33,6 +33,10 @@ func GetSignatureAnnotationsForImageManifest(_ context.Context, sv *signver.Sign
 	}, nil
 }
 
+func VerifyImageManifestSignature(_ context.Context, sv *signver.SignerVerifier, manifest *v1.Manifest) error {
+	panic("not implemented yet")
+}
+
 func getManifestPayloadHash(manifest *v1.Manifest) string {
 	annotations := manifest.Annotations
 	if annotations == nil {
