@@ -58,8 +58,8 @@ func CalculateDMVerityRootHash(ctx context.Context, rc io.Reader) (string, error
 		return "", fmt.Errorf("create EROFS image: %w", err)
 	}
 
-	if err := createDummyHashImage(ctx, hashPath); err != nil {
-		return "", fmt.Errorf("create dummy hash image: %w", err)
+	if err := createHashImageFile(ctx, erofsPath, hashPath); err != nil {
+		return "", fmt.Errorf("create hash image: %w", err)
 	}
 
 	rootHash, err := getVeritySetupFormatRootHash(ctx, erofsPath, hashPath)
@@ -113,11 +113,30 @@ func createErofsImage(ctx context.Context, rc io.Reader, erofsPath, mkfsBuildTim
 	return nil
 }
 
-func createDummyHashImage(ctx context.Context, hashPath string) error {
-	dd := exec.CommandContextCancellation(ctx, "dd", "if=/dev/zero", fmt.Sprintf("of=%s", hashPath), "bs=1M", "count=4")
-	if err := dd.Run(); err != nil {
-		return fmt.Errorf("dd: %w", err)
+func createHashImageFile(_ context.Context, erofsPath, hashPath string) error {
+	stat, err := os.Stat(erofsPath)
+	if err != nil {
+		return fmt.Errorf("stat erofs image: %w", err)
 	}
+
+	size := stat.Size()
+	
+	// Verity partition (LABEL=VERITY), should require 8-10% the size of Root.
+	hashSize := int64(float64(size) * 0.1)
+	if hashSize < 4*1024*1024 {
+		hashSize = 4 * 1024 * 1024
+	}
+
+	file, err := os.Create(hashPath)
+	if err != nil {
+		return fmt.Errorf("create hash image file: %w", err)
+	}
+	defer file.Close()
+
+	if err := file.Truncate(hashSize); err != nil {
+		return fmt.Errorf("truncate hash image file: %w", err)
+	}
+
 	return nil
 }
 
