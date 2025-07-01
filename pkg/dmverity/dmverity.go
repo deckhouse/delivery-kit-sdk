@@ -1,0 +1,153 @@
+package dmverity
+
+import (
+	"context"
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"regexp"
+	"strings"
+	
+	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/mutate"
+	
+	"github.com/deckhouse/delivery-kit-sdk/internal/exec"
+)
+
+const (
+	annoNameBuildTimestamp  = "io.deckhouse.deliverykit.build-timestamp"
+	annoNameDMVerityRootHash = "io.deckhouse.deliverykit.dm-verity-root-hash"
+
+	staticMkfsBuildTimestamp = "1750791050"                                                       // 2025-06-24T18:50:50Z
+	magicVeritySalt          = "dc0f616e4bf75776061d5ffb7a6f45e1313b7cc86f3aa49b68de4f6d187bad2b"
+)
+
+func AnnotateLayerWithDMVerityRootHash(ctx context.Context, layer v1.Layer) (mutate.Addendum, error) {
+	rc, err := layer.Uncompressed()
+	if err != nil {
+		return mutate.Addendum{}, fmt.Errorf("get uncompressed layer: %w", err)
+	}
+	defer rc.Close()
+
+	rootHash, err := CalculateDMVerityRootHash(ctx, rc)
+	if err != nil {
+		return mutate.Addendum{}, err
+	}
+
+	return mutate.Addendum{
+		Layer: layer,
+		Annotations: map[string]string{
+			annoNameBuildTimestamp:   staticMkfsBuildTimestamp,
+			annoNameDMVerityRootHash: rootHash,
+		},
+	}, nil
+}
+
+func CalculateDMVerityRootHash(ctx context.Context, rc io.Reader) (string, error) {
+	tmpDir, err := createTempDir("layer-erofs")
+	if err != nil {
+		return "", err
+	}
+	defer os.RemoveAll(tmpDir)
+
+	erofsPath := filepath.Join(tmpDir, "layer.erofs.img")
+	hashPath := filepath.Join(tmpDir, "layer.hash.img")
+
+	if err := createErofsImage(ctx, rc, erofsPath, staticMkfsBuildTimestamp); err != nil {
+		return "", fmt.Errorf("create EROFS image: %w", err)
+	}
+
+	if err := createDummyHashImage(ctx, hashPath); err != nil {
+		return "", fmt.Errorf("create dummy hash image: %w", err)
+	}
+
+	rootHash, err := getVeritySetupFormatRootHash(ctx, erofsPath, hashPath)
+	if err != nil {
+		return "", fmt.Errorf("get verity setup format root hash: %w", err)
+	}
+
+	return rootHash, nil
+}
+
+func createTempDir(prefix string) (string, error) {
+	tmpDir, err := os.MkdirTemp("", prefix)
+	if err != nil {
+		return "", fmt.Errorf("create temp dir: %w", err)
+	}
+	return tmpDir, nil
+}
+
+func validateMkfsVersion(ctx context.Context) error {
+	versionOutput, err := runCommand(ctx, "mkfs.erofs", "--version")
+	if err != nil {
+		return fmt.Errorf("failed to get mkfs.erofs version: %v\n%s", err, versionOutput)
+	}
+
+	versionRegex := regexp.MustCompile(`\d+\.\d+\.\d+`)
+	versionMatch := versionRegex.FindString(versionOutput)
+	if versionMatch == "" {
+		return fmt.Errorf("unable to parse mkfs.erofs version from output: %s", versionOutput)
+	}
+
+	requiredVersion := "1.8.6"
+	if versionMatch != requiredVersion {
+		return fmt.Errorf("mkfs.erofs version %s does not match the required version %s", versionMatch, requiredVersion)
+	}
+
+	return nil
+}
+
+func createErofsImage(ctx context.Context, rc io.Reader, erofsPath, mkfsBuildTimestamp string) error {
+	if err := validateMkfsVersion(ctx); err != nil {
+		return err
+	}
+
+	mkfs := exec.CommandContextCancellation(ctx, "mkfs.erofs", "-Uclear", "-T"+mkfsBuildTimestamp, "-x-1", "-Enoinline_data", "--tar=-", erofsPath)
+	mkfs.Stderr = os.Stderr
+	mkfs.Stdin = rc
+
+	if err := mkfs.Run(); err != nil {
+		return fmt.Errorf("mkfs.erofs: %w", err)
+	}
+	return nil
+}
+
+func createDummyHashImage(ctx context.Context, hashPath string) error {
+	dd := exec.CommandContextCancellation(ctx, "dd", "if=/dev/zero", fmt.Sprintf("of=%s", hashPath), "bs=1M", "count=4")
+	if err := dd.Run(); err != nil {
+		return fmt.Errorf("dd: %w", err)
+	}
+	return nil
+}
+
+func getVeritySetupFormatRootHash(ctx context.Context, erofsPath, hashPath string) (string, error) {
+	output, err := runCommand(ctx, "veritysetup", "format", "--data-block-size=4096", "--hash-block-size=4096", "--salt="+magicVeritySalt, erofsPath, hashPath)
+	if err != nil {
+		return "", fmt.Errorf("veritysetup: %v\n%s", err, output)
+	}
+
+	rootHash := extractRootHash(output)
+	if rootHash == "" {
+		return "", fmt.Errorf("failed to extract root hash")
+	}
+	return rootHash, nil
+}
+
+func runCommand(ctx context.Context, name string, args ...string) (string, error) {
+	cmd := exec.CommandContextCancellation(ctx, name, args...)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return string(out), err
+	}
+	return string(out), nil
+}
+
+func extractRootHash(output string) string {
+	for _, line := range strings.Split(output, "\n") {
+		if strings.HasPrefix(line, "Root hash:") {
+			return strings.TrimSpace(strings.TrimPrefix(line, "Root hash:"))
+		}
+	}
+	return ""
+}
