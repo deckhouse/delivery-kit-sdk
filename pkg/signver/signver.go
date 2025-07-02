@@ -7,8 +7,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"os"
-
+	"github.com/deckhouse/delivery-kit-sdk/pkg/signver/blob"
 	"github.com/google/certificate-transparency-go/x509util"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"github.com/sigstore/sigstore/pkg/signature"
@@ -32,7 +31,10 @@ type SignerVerifier struct {
 // NewSignerVerifier
 // Copied from https://github.com/sigstore/cosign/blob/c948138c19691142c1e506e712b7c1646e8ceb21/cmd/cosign/cli/sign/sign.go#L392
 // and modified after.
-func NewSignerVerifier(ctx context.Context, certPath, certChainPath string, ko KeyOpts) (*SignerVerifier, error) {
+//
+// certRef could be a base64 or a file path
+// certChainRef could be a base64 or a file path
+func NewSignerVerifier(ctx context.Context, certRef, certChainRef string, ko KeyOpts) (*SignerVerifier, error) {
 	if ko.KeyRef == "" {
 		return nil, errors.New("ko.KeyRef must not be empty string")
 	}
@@ -51,9 +53,9 @@ func NewSignerVerifier(ctx context.Context, certPath, certChainPath string, ko K
 	// NOTE: PKCS11 keys are unsupported
 
 	// Handle --cert flag
-	if certPath != "" {
+	if certRef != "" {
 		// Allow both DER and PEM encoding
-		certBytes, err := os.ReadFile(certPath)
+		certBytes, err := blob.LoadBase64OrFile(certRef)
 		if err != nil {
 			return nil, fmt.Errorf("read certificate: %w", err)
 		}
@@ -61,7 +63,7 @@ func NewSignerVerifier(ctx context.Context, certPath, certChainPath string, ko K
 		if bytes.HasPrefix(certBytes, []byte("-----")) {
 			decoded, _ := pem.Decode(certBytes)
 			if decoded.Type != "CERTIFICATE" {
-				return nil, fmt.Errorf("supplied PEM file is not a certificate: %s", certPath)
+				return nil, fmt.Errorf("supplied PEM file is not a certificate: %s", certRef)
 			}
 			certBytes = decoded.Bytes
 		}
@@ -87,7 +89,7 @@ func NewSignerVerifier(ctx context.Context, certPath, certChainPath string, ko K
 		certSigner.Cert = pemBytes
 	}
 
-	if certChainPath == "" {
+	if certChainRef == "" {
 		return certSigner, nil
 	} else if certSigner.Cert == nil {
 		return nil, errors.New("no leaf certificate found or provided while specifying chain")
@@ -95,7 +97,7 @@ func NewSignerVerifier(ctx context.Context, certPath, certChainPath string, ko K
 
 	// Handle --cert-chain flag
 	// Accept only PEM encoded certificate chain
-	certChainBytes, err := os.ReadFile(certChainPath)
+	certChainBytes, err := blob.LoadBase64OrFile(certChainRef)
 	if err != nil {
 		return nil, fmt.Errorf("reading certificate chain from path: %w", err)
 	}

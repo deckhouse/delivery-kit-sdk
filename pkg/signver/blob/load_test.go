@@ -17,6 +17,7 @@ package blob
 
 import (
 	"bytes"
+	"encoding/base64"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -24,6 +25,19 @@ import (
 	"runtime"
 	"testing"
 )
+
+func TestLoadBase64(t *testing.T) {
+	data := []byte("test")
+
+	decoded := base64.StdEncoding.EncodeToString(data)
+
+	actual, err := LoadURLOrBase64OrFile(decoded)
+	if err != nil {
+		t.Errorf("Reading base64 %q: %v", decoded, err)
+	} else if !bytes.Equal(actual, data) {
+		t.Errorf("LoadURLOrBase64OrFile(base64) = '%s'; want '%s'", actual, data)
+	}
+}
 
 func TestLoadFile(t *testing.T) {
 	if runtime.GOOS == "windows" {
@@ -37,21 +51,21 @@ func TestLoadFile(t *testing.T) {
 	os.WriteFile(path, data, 0o400)
 
 	// absolute path
-	actual, err := LoadFileOrURL(path)
+	actual, err := LoadURLOrBase64OrFile(path)
 	if err != nil {
 		t.Errorf("Reading from absolute path %s failed: %v", path, err)
 	} else if !bytes.Equal(actual, data) {
-		t.Errorf("LoadFileOrURL(absolute path) = '%s'; want '%s'", actual, data)
+		t.Errorf("LoadURLOrBase64OrFile(absolute path) = '%s'; want '%s'", actual, data)
 	}
 
 	if err = os.Chdir(temp); err != nil {
 		t.Fatalf("Chdir('%s'): %v", temp, err)
 	}
-	actual, err = LoadFileOrURL(fname)
+	actual, err = LoadURLOrBase64OrFile(fname)
 	if err != nil {
 		t.Errorf("Reading from relative path %s failed: %v", fname, err)
 	} else if !bytes.Equal(actual, data) {
-		t.Errorf("LoadFileOrURL(relative path) = '%s'; want '%s'", actual, data)
+		t.Errorf("LoadURLOrBase64OrFile(relative path) = '%s'; want '%s'", actual, data)
 	}
 }
 
@@ -63,37 +77,37 @@ func TestLoadURL(t *testing.T) {
 	}))
 	defer server.Close()
 
-	actual, err := LoadFileOrURL(server.URL)
+	actual, err := LoadURLOrBase64OrFile(server.URL)
 	if err != nil {
 		t.Errorf("Reading from HTTP failed: %v", err)
 	} else if !bytes.Equal(actual, data) {
-		t.Errorf("LoadFileOrURL(HTTP) = '%s'; want '%s'", actual, data)
+		t.Errorf("LoadURLOrBase64OrFile(HTTP) = '%s'; want '%s'", actual, data)
 	}
 
 	os.Setenv("MY_ENV_VAR", string(data))
-	actual, err = LoadFileOrURL("env://MY_ENV_VAR")
+	actual, err = LoadURLOrBase64OrFile("env://MY_ENV_VAR")
 	if err != nil {
 		t.Errorf("Reading from environment failed: %v", err)
 	} else if !bytes.Equal(actual, data) {
-		t.Errorf("LoadFileOrURL(env) = '%s'; want '%s'", actual, data)
+		t.Errorf("LoadURLOrBase64OrFile(env) = '%s'; want '%s'", actual, data)
 	}
 
 	os.Setenv("MY_ENV_VAR", "")
-	actual, err = LoadFileOrURL("env://MY_ENV_VAR")
+	actual, err = LoadURLOrBase64OrFile("env://MY_ENV_VAR")
 	if err != nil {
 		t.Errorf("Reading from environment failed: %v", err)
 	} else if !bytes.Equal(actual, make([]byte, 0)) {
-		t.Errorf("LoadFileOrURL(env) = '%s'; should be empty", actual)
+		t.Errorf("LoadURLOrBase64OrFile(env) = '%s'; should be empty", actual)
 	}
 
 	os.Unsetenv("MY_ENV_VAR")
-	_, err = LoadFileOrURL("env://MY_ENV_VAR")
+	_, err = LoadURLOrBase64OrFile("env://MY_ENV_VAR")
 	if err == nil {
-		t.Error("LoadFileOrURL(): expected error for unset env var")
+		t.Error("LoadURLOrBase64OrFile(): expected error for unset env var")
 	}
 
-	_, err = LoadFileOrURL("invalid://url")
+	_, err = LoadURLOrBase64OrFile("invalid://url")
 	if err == nil {
-		t.Error("LoadFileOrURL(): expected error for invalid scheme")
+		t.Error("LoadURLOrBase64OrFile(): expected error for invalid scheme")
 	}
 }
