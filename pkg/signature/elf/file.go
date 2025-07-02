@@ -2,7 +2,7 @@ package elf
 
 import (
 	"context"
-	
+
 	"github.com/deckhouse/delivery-kit-sdk/pkg/signver"
 )
 

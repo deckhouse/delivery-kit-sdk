@@ -1,0 +1,26 @@
+name: Test Unit
+
+on: [push]
+
+jobs:
+  test-unit:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Use Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Install Task
+        uses: arduino/setup-task@v2
+
+      - name: Install project dependencies
+        run: task deps:install
+
+      - name: Test Unit
+        run: task test:unit

@@ -1,0 +1,69 @@
+version: "3"
+
+tasks:
+  lint:
+    desc: 'Run all linters in parallel. Important vars: "paths".'
+    deps:
+      - lint:golangci-lint
+
+  lint:golangci-lint:
+    desc: 'Lint with golangci-lint without cgo. Important vars: "paths".'
+    cmds:
+      - golangci-lint run {{.CLI_ARGS}} {{.paths | default "./..."}}
+    env:
+      CGO_ENABLED: "0"
+
+  format:
+    desc: 'Run all code formatters. Important vars: "paths".'
+    run: once
+    cmds:
+      - task: format:gci
+      - task: format:gofumpt
+
+  format:gci:
+    desc: 'Format code with gci. Important vars: "paths".'
+    cmds:
+      - gci write {{.paths | default "pkg/ test/ internal/"}}
+
+  format:gofumpt:
+    desc: 'Format code with gofumpt. Important vars: "paths".'
+    cmds:
+      - gofumpt -extra -w {{.CLI_ARGS}} {{.paths | default "pkg/ test/ internal/"}}
+
+  test:unit:
+    vars:
+      parallel: '{{.parallel | default "true"}}'
+      paths: '{{.paths | default "./pkg/... ./internal/..." }}'
+    cmds:
+      - |
+        ginkgo {{if eq .parallel "true" }}-p{{end}} -r -race {{.CLI_ARGS}} {{.paths}}
+
+  deps:install:
+    desc: "Install all dependencies"
+    deps:
+      - deps:install:gci
+      - deps:install:ginkgo
+      - deps:install:golangci-lint
+      - deps:install:gofumpt
+
+  deps:install:gci:
+    desc: "Install gci binary."
+    cmds:
+      - go install github.com/daixiang0/gci@v0.13.5
+
+  deps:install:ginkgo:
+    desc: "Install ginkgo binary."
+    cmds:
+      - |
+        version="$(go list -m -f '{{ printf `{{ .Version }}` }}' github.com/onsi/ginkgo/v2)"
+        go install {{.CLI_ARGS}} github.com/onsi/ginkgo/v2/ginkgo@${version}
+
+  deps:install:golangci-lint:
+    desc: "Install golangci-lint binary."
+    cmds:
+      - curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin {{.golangcilintVersion | default "v1.57.1"}}
+
+  deps:install:gofumpt:
+    desc: "Install gofumpt binary."
+    cmds:
+      - go install mvdan.cc/gofumpt@v0.7.0
