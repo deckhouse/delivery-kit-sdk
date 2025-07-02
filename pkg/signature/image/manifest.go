@@ -9,15 +9,14 @@ import (
 	"strconv"
 	"strings"
 
-	v1 "github.com/google/go-containerregistry/pkg/v1"
-	
 	"github.com/deckhouse/delivery-kit-sdk/pkg/signver"
+	v1 "github.com/google/go-containerregistry/pkg/v1"
 )
 
 const (
-	annoNameSignature       = "io.deckhouse.deliverykit.signature"
-	annoNameCert            = "io.deckhouse.deliverykit.cert"
-	annoNameChain           = "io.deckhouse.deliverykit.chain"
+	annoNameSignature = "io.deckhouse.deliverykit.signature"
+	annoNameCert      = "io.deckhouse.deliverykit.cert"
+	annoNameChain     = "io.deckhouse.deliverykit.chain"
 )
 
 func GetSignatureAnnotationsForImageManifest(_ context.Context, sv *signver.SignerVerifier, manifest *v1.Manifest) (map[string]string, error) {
@@ -25,7 +24,7 @@ func GetSignatureAnnotationsForImageManifest(_ context.Context, sv *signver.Sign
 	if err != nil {
 		return nil, err
 	}
-	
+
 	annotations := make(map[string]string)
 	annotations[annoNameSignature] = base64.StdEncoding.EncodeToString(signedPayload)
 	if sv.Cert != nil {
@@ -34,7 +33,7 @@ func GetSignatureAnnotationsForImageManifest(_ context.Context, sv *signver.Sign
 	if sv.Chain != nil {
 		annotations[annoNameChain] = base64.StdEncoding.EncodeToString(sv.Chain)
 	}
-	
+
 	return annotations, nil
 }
 
@@ -62,7 +61,7 @@ func getManifestPayloadHash(manifest *v1.Manifest) string {
 		}
 		hashes = append(hashes, k, annotations[k])
 	}
-	
+
 	return fmt.Sprintf("%x", sha256.Sum256([]byte(strings.Join(hashes, ""))))
 }
 

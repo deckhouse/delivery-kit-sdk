@@ -11,13 +11,12 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/deckhouse/delivery-kit-sdk/pkg/signver/blob"
 	"github.com/secure-systems-lab/go-securesystemslib/encrypted"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"github.com/sigstore/sigstore/pkg/signature"
 	"github.com/sigstore/sigstore/pkg/signature/kms"
 	"golang.org/x/crypto/ed25519"
-
-	"github.com/deckhouse/delivery-kit-sdk/pkg/signver/blob"
 )
 
 const (
