@@ -57,11 +57,13 @@ func VerifyImageManifestSignature(ctx context.Context, _ *signver.SignerVerifier
 
 	chainBase64Encoded, ok := manifest.Annotations[annoNameChain]
 	if ok {
-		_, cert, err := signver.LoadCertFromRef(certBase64Encoded)
+		cert, err := signver.LoadCertFromRef(certBase64Encoded)
 		if err != nil {
 			return fmt.Errorf("load cert from ref: %w", err)
 		}
-		if _, err = signver.VerifyChain(cert, chainBase64Encoded); err != nil {
+		const rootCertRef = "" // TODO: define root cert as file path or base64
+
+		if _, _, err = signver.VerifyChain(cert, chainBase64Encoded, rootCertRef); err != nil {
 			return fmt.Errorf("chain verification: %w", err)
 		}
 	}
