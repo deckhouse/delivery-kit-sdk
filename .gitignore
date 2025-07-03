@@ -1,1 +1,8 @@
 /.idea
+
+*.os
+*.o
+*.a
+*.so
+build/
+/cmake-build*
