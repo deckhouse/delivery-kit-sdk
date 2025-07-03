@@ -60,7 +60,7 @@ var _ = Describe("SignerVerifier", func() {
 	)
 })
 
-type OptionsFunc func(certFile, chainFile string, ko signver.KeyOpts) (certFileModified string, chainFileModified string, koModified signver.KeyOpts)
+type OptionsFunc func(certFile, chainFile string, ko signver.KeyOpts) (certFileModified, chainFileModified string, koModified signver.KeyOpts)
 
 func readFile(filePath string) []byte {
 	raw, err := os.ReadFile(filePath)
