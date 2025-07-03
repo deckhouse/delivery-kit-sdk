@@ -11,13 +11,12 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/deckhouse/delivery-kit-sdk/pkg/signver/blob"
 	"github.com/secure-systems-lab/go-securesystemslib/encrypted"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"github.com/sigstore/sigstore/pkg/signature"
 	"github.com/sigstore/sigstore/pkg/signature/kms"
 	"golang.org/x/crypto/ed25519"
-
-	"github.com/deckhouse/delivery-kit-sdk/pkg/signver/blob"
 )
 
 const (
@@ -66,8 +65,9 @@ func signerVerifierFromKeyRef(ctx context.Context, keyRef string, passFunc crypt
 
 // loadKey
 // Copied from https://github.com/sigstore/cosign/blob/c948138c19691142c1e506e712b7c1646e8ceb21/pkg/signature/keys.go#L75
+// and modified after.
 func loadKey(keyPath string, pf cryptoutils.PassFunc) (signature.SignerVerifier, error) {
-	kb, err := blob.LoadFileOrURL(keyPath)
+	kb, err := blob.LoadURLOrBase64OrFile(keyPath)
 	if err != nil {
 		return nil, err
 	}

@@ -4,30 +4,32 @@ import (
 	"bytes"
 	"crypto/ecdsa"
 	"crypto/x509"
+	"encoding/base64"
 	"encoding/pem"
 	"fmt"
-	"github.com/deckhouse/delivery-kit-sdk/test/pkg/cert_utils"
 	"os"
 
+	"github.com/deckhouse/delivery-kit-sdk/pkg/signver"
+	"github.com/deckhouse/delivery-kit-sdk/test/pkg/cert_utils"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/secure-systems-lab/go-securesystemslib/encrypted"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
-
-	"github.com/deckhouse/delivery-kit-sdk/pkg/signver"
 )
 
 var _ = Describe("SignerVerifier", func() {
 	DescribeTable("should sign and verify",
-		func(ctx SpecContext) {
+		func(ctx SpecContext, OptsFunc OptionsFunc) {
 			passFunc := cryptoutils.SkipPassword
 
 			keyFile, certFile, chainFile, _, _, _ := generateCertificateFiles(GinkgoT().TempDir(), passFunc)
 
-			sv, err := signver.NewSignerVerifier(ctx, certFile, chainFile, signver.KeyOpts{
+			certFileModified, chainFileModified, koModified := OptsFunc(certFile, chainFile, signver.KeyOpts{
 				KeyRef:   keyFile,
 				PassFunc: passFunc,
 			})
+
+			sv, err := signver.NewSignerVerifier(ctx, certFileModified, chainFileModified, koModified)
 			Expect(err).To(Succeed())
 
 			message := []byte("sign me")
@@ -39,10 +41,32 @@ var _ = Describe("SignerVerifier", func() {
 			Expect(err).To(Succeed())
 		},
 		Entry(
-			"with cert and cert chain",
+			"with key, cert and cert chain as file paths",
+			func(certFile, chainFile string, opts signver.KeyOpts) (string, string, signver.KeyOpts) {
+				return certFile, chainFile, opts
+			},
+		),
+		Entry(
+			"with key, cert and cert chain as base64",
+			func(certFile, chainFile string, opts signver.KeyOpts) (string, string, signver.KeyOpts) {
+				return base64.StdEncoding.EncodeToString(readFile(certFile)),
+					base64.StdEncoding.EncodeToString(readFile(chainFile)),
+					signver.KeyOpts{
+						KeyRef:   base64.StdEncoding.EncodeToString(readFile(opts.KeyRef)),
+						PassFunc: opts.PassFunc,
+					}
+			},
 		),
 	)
 })
+
+type OptionsFunc func(certFile, chainFile string, ko signver.KeyOpts) (certFileModified, chainFileModified string, koModified signver.KeyOpts)
+
+func readFile(filePath string) []byte {
+	raw, err := os.ReadFile(filePath)
+	Expect(err).To(Succeed())
+	return raw
+}
 
 // generateCertificateFiles
 // Copied from https://github.com/sigstore/cosign/blob/c948138c19691142c1e506e712b7c1646e8ceb21/cmd/cosign/cli/sign/sign_test.go#L46

@@ -8,18 +8,17 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
-	
+
+	"github.com/deckhouse/delivery-kit-sdk/internal/exec"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
-	
-	"github.com/deckhouse/delivery-kit-sdk/internal/exec"
 )
 
 const (
-	annoNameBuildTimestamp  = "io.deckhouse.deliverykit.build-timestamp"
+	annoNameBuildTimestamp   = "io.deckhouse.deliverykit.build-timestamp"
 	annoNameDMVerityRootHash = "io.deckhouse.deliverykit.dm-verity-root-hash"
 
-	staticMkfsBuildTimestamp = "1750791050"                                                       // 2025-06-24T18:50:50Z
+	staticMkfsBuildTimestamp = "1750791050" // 2025-06-24T18:50:50Z
 	magicVeritySalt          = "dc0f616e4bf75776061d5ffb7a6f45e1313b7cc86f3aa49b68de4f6d187bad2b"
 )
 
@@ -120,7 +119,7 @@ func createHashImageFile(_ context.Context, erofsPath, hashPath string) error {
 	}
 
 	size := stat.Size()
-	
+
 	// Verity partition (LABEL=VERITY), should require 8-10% the size of Root.
 	hashSize := int64(float64(size) * 0.1)
 	if hashSize < 4*1024*1024 {

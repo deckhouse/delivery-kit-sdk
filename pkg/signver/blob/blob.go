@@ -1,6 +1,7 @@
 package blob
 
 import (
+	"encoding/base64"
 	"fmt"
 	"io"
 	"net/http"
@@ -17,9 +18,8 @@ func (e *UnrecognizedSchemeError) Error() string {
 	return fmt.Sprintf("loading URL: unrecognized scheme: %s", e.Scheme)
 }
 
-func LoadFileOrURL(fileRef string) ([]byte, error) {
+func LoadURLOrBase64OrFile(fileRef string) ([]byte, error) {
 	var raw []byte
-	var err error
 	parts := strings.SplitAfterN(fileRef, "://", 2)
 	if len(parts) == 2 {
 		scheme := parts[0]
@@ -51,10 +51,18 @@ func LoadFileOrURL(fileRef string) ([]byte, error) {
 			return nil, &UnrecognizedSchemeError{Scheme: scheme}
 		}
 	} else {
-		raw, err = os.ReadFile(filepath.Clean(fileRef))
-		if err != nil {
-			return nil, err
-		}
+		return LoadBase64OrFile(fileRef)
 	}
 	return raw, nil
+}
+
+func LoadBase64OrFile(fileRef string) ([]byte, error) {
+	var raw []byte
+	var err error
+	if raw, err = base64.StdEncoding.DecodeString(fileRef); err == nil {
+		return raw, nil
+	} else if raw, err = os.ReadFile(filepath.Clean(fileRef)); err != nil {
+		return nil, err
+	}
+	return raw, err
 }
