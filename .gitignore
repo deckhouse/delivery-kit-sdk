@@ -4,5 +4,4 @@
 *.o
 *.a
 *.so
-build/
-/cmake-build*
+/c/lib/welf/build

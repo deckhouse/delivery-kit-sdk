@@ -1,3 +1,6 @@
+//go:build linux
+// +build linux
+
 package elf_test
 
 import (
@@ -29,7 +32,7 @@ var _ = Describe("signature/elf", func() {
 			newElfFile, err := os.CreateTemp("", "hello.*.elf")
 			Expect(err).To(Succeed())
 			defer newElfFile.Close()
-			// defer os.Remove(newElfFile.Name())
+			defer os.Remove(newElfFile.Name())
 
 			_, err = newElfFile.Write(oldElfData)
 			Expect(err).To(Succeed())
@@ -39,13 +42,13 @@ var _ = Describe("signature/elf", func() {
 
 			Expect(elf.Sign(ctx, signerVerifier, newElfFilePath)).To(Succeed())
 
-			_, err = os.ReadFile(newElfFilePath)
+			newElfData, err := os.ReadFile(newElfFilePath)
 			Expect(err).To(Succeed())
 
-			// fixtureNewElfData, err := os.ReadFile(helloElfFileWithSignature)
-			// Expect(err).To(Succeed())
-			//
-			// Expect(newElfData).To(Equal(fixtureNewElfData))
+			fixtureNewElfData, err := os.ReadFile(helloElfFileWithSignature)
+			Expect(err).To(Succeed())
+
+			Expect(newElfData).To(Equal(fixtureNewElfData))
 		},
 		Entry(
 			"with x509 certs",
@@ -94,7 +97,7 @@ func (s *fakeSignerVerifier) SignMessage(message io.Reader, opts ...signature.Si
 	}
 
 	result := make([]byte, base64.StdEncoding.EncodedLen(len(msg)))
-	base64.StdEncoding.Encode(msg, result)
+	base64.StdEncoding.Encode(result, msg)
 
 	return result, nil
 }

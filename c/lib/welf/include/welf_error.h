@@ -1,5 +1,5 @@
-#ifndef WERROR_H
-#define WERROR_H
+#ifndef WELF_ERROR_H
+#define WELF_ERROR_H
 
 void welf_set_errmsg(const char *fmt, ...);
 

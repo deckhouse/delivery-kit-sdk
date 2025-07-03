@@ -10,10 +10,10 @@
 #include <sys/sendfile.h>
 #include <fcntl.h>
 
-#include "werror.h"
 #include "gelf.h"
 #include "libelf.h"
-#include "note.h"
+#include "welf_error.h"
+#include "welf_note.h"
 
 #define WERF_SIGNATURE_SECTION_NAME ".note.werf.signature"
 #define WERF_SIGNATURE_NOTE_NAME "werf.signature"
@@ -79,157 +79,150 @@
 
 // FIXME: ignore bsign signature
 // FIXME: add elf header, program headers, section headers, something other? to the hash
-char *compute_elf_hash(Elf *elf) {
+int welf_compute_elf_hash(Elf *elf, char *result_buf) {
     unsigned char hash[SHA256_DIGEST_LENGTH];
     EVP_MD_CTX *ctx = EVP_MD_CTX_new();
     if (!ctx) {
         welf_set_errmsg("compute_elf_hash: failed to create EVP_MD_CTX: %s", ERR_error_string(ERR_get_error(), NULL));
-        return NULL;
+        return -1;
     }
 
     if (EVP_DigestInit_ex(ctx, EVP_sha256(), NULL) != 1) {
         welf_set_errmsg("compute_elf_hash: EVP_DigestInit_ex failed: %s", ERR_error_string(ERR_get_error(), NULL));
         EVP_MD_CTX_free(ctx);
-        return NULL;
+        return -1;
     }
 
-    size_t strTableIndex;
-    if (elf_getshdrstrndx(elf, &strTableIndex) != 0) {
+    size_t str_table_index;
+    if (elf_getshdrstrndx(elf, &str_table_index) != 0) {
         welf_set_errmsg("compute_elf_hash: get string table index failed: %s", elf_errmsg(-1));
         EVP_MD_CTX_free(ctx);
-        return NULL;
+        return -1;
     }
 
     Elf_Scn *section = NULL;
-    GElf_Shdr sectionHeader;
+    GElf_Shdr section_header;
     while ((section = elf_nextscn(elf, section)) != NULL) {
-        if (gelf_getshdr(section, &sectionHeader) != &sectionHeader) {
+        if (gelf_getshdr(section, &section_header) != &section_header) {
             welf_set_errmsg("compute_elf_hash: failed to get section header: %s", elf_errmsg(-1));
             EVP_MD_CTX_free(ctx);
-            return NULL;
+            return -1;
         }
 
-        char *sectionName = elf_strptr(elf, strTableIndex, sectionHeader.sh_name);
-        if (!sectionName) {
+        char *section_name = elf_strptr(elf, str_table_index, section_header.sh_name);
+        if (!section_name) {
             welf_set_errmsg("compute_elf_hash: failed to get section name: %s", elf_errmsg(-1));
             EVP_MD_CTX_free(ctx);
-            return NULL;
+            return -1;
         }
 
-        if (strcmp(sectionName, WERF_SIGNATURE_SECTION_NAME) == 0) continue;
+        if (strcmp(section_name, WERF_SIGNATURE_SECTION_NAME) == 0) continue;
 
-        size_t sectionSize = sectionHeader.sh_size;
-        size_t sectionOffset = sectionHeader.sh_offset;
-        const size_t chunkSize = 4096;
+        size_t section_size = section_header.sh_size;
+        size_t section_offset = section_header.sh_offset;
+        const size_t chunk_size = 4096;
 
-        size_t curOffset = 0;
-        while (curOffset < sectionSize) {
-            size_t curChunkSize = (sectionSize - curOffset > chunkSize) ? chunkSize : (sectionSize - curOffset);
+        size_t cur_offset = 0;
+        while (cur_offset < section_size) {
+            size_t cur_chunk_size = (section_size - cur_offset > chunk_size) ? chunk_size : (section_size - cur_offset);
 
-            Elf_Data *chunk = elf_getdata_rawchunk(elf, sectionOffset + curOffset, curChunkSize, ELF_T_BYTE);
+            Elf_Data *chunk = elf_getdata_rawchunk(elf, section_offset + cur_offset, cur_chunk_size, ELF_T_BYTE);
             if (!chunk) {
-                welf_set_errmsg("compute_elf_hash: failed to get data chunk for section %s: %s", sectionName,
+                welf_set_errmsg("compute_elf_hash: failed to get data chunk for section %s: %s", section_name,
                                 elf_errmsg(-1));
                 EVP_MD_CTX_free(ctx);
-                return NULL;
+                return -1;
             }
 
             if (chunk->d_buf && chunk->d_size > 0) {
                 if (EVP_DigestUpdate(ctx, chunk->d_buf, chunk->d_size) != 1) {
-                    welf_set_errmsg("compute_elf_hash: EVP_DigestUpdate failed for section %s: %s", sectionName,
+                    welf_set_errmsg("compute_elf_hash: EVP_DigestUpdate failed for section %s: %s", section_name,
                                     ERR_error_string(ERR_get_error(), NULL));
                     EVP_MD_CTX_free(ctx);
-                    return NULL;
+                    return -1;
                 }
             }
 
-            curOffset += curChunkSize;
+            cur_offset += cur_chunk_size;
         }
     }
 
     if (EVP_DigestFinal_ex(ctx, hash, NULL) != 1) {
         welf_set_errmsg("compute_elf_hash: EVP_DigestFinal_ex failed: %s", ERR_error_string(ERR_get_error(), NULL));
         EVP_MD_CTX_free(ctx);
-        return NULL;
+        return -1;
     }
 
     EVP_MD_CTX_free(ctx);
 
-    char *result = malloc(SHA256_DIGEST_LENGTH * 2 + 1);
-    if (!result) {
-        welf_set_errmsg("compute_elf_hash: failed to allocate memory for hash result: %s", strerror(errno));
-        return NULL;
-    }
-
     for (int i = 0; i < SHA256_DIGEST_LENGTH; i++)
-        sprintf(result + i * 2, "%02x", hash[i]);
+        sprintf(result_buf + i * 2, "%02x", hash[i]);
+    result_buf[SHA256_DIGEST_LENGTH * 2] = '\0';
 
-    result[SHA256_DIGEST_LENGTH * 2] = '\0';
-
-    return result;
+    return 0;
 }
 
-int get_elf_signature(Elf *elf, unsigned char **outBuf, size_t *outSize) {
-    if (outBuf) *outBuf = NULL;
-    if (outSize) *outSize = 0;
+int welf_get_elf_signature(Elf *elf, unsigned char **result_buf, size_t *result_size) {
+    if (result_buf) *result_buf = NULL;
+    if (result_size) *result_size = 0;
 
-    size_t strTableIndex;
-    if (elf_getshdrstrndx(elf, &strTableIndex) != 0) {
+    size_t str_table_index;
+    if (elf_getshdrstrndx(elf, &str_table_index) != 0) {
         welf_set_errmsg("get_elf_signature: get string table index failed: %s", elf_errmsg(-1));
         return -1;
     }
 
     Elf_Scn *section = NULL;
-    GElf_Shdr sectionHeader;
+    GElf_Shdr section_header;
     while ((section = elf_nextscn(elf, section)) != NULL) {
-        if (gelf_getshdr(section, &sectionHeader) != &sectionHeader) {
+        if (gelf_getshdr(section, &section_header) != &section_header) {
             welf_set_errmsg("get_elf_signature: failed to get section header: %s", elf_errmsg(-1));
             return -1;
         }
 
-        char *sectionName = elf_strptr(elf, strTableIndex, sectionHeader.sh_name);
-        if (!sectionName) {
+        char *section_name = elf_strptr(elf, str_table_index, section_header.sh_name);
+        if (!section_name) {
             welf_set_errmsg("get_elf_signature: failed to get section name: %s", elf_errmsg(-1));
             return -1;
         }
 
-        if (strcmp(sectionName, WERF_SIGNATURE_SECTION_NAME) != 0) continue;
+        if (strcmp(section_name, WERF_SIGNATURE_SECTION_NAME) != 0) continue;
 
-        Elf_Data *noteData = elf_getdata(section, NULL);
-        if (!noteData) {
-            welf_set_errmsg("get_elf_signature: failed to get data for section %s: %s", sectionName, elf_errmsg(-1));
+        Elf_Data *note_data = elf_getdata(section, NULL);
+        if (!note_data) {
+            welf_set_errmsg("get_elf_signature: failed to get data for section %s: %s", section_name, elf_errmsg(-1));
             return -1;
         }
 
-        uint32_t noteDescSize, noteType;
-        const char *noteName;
-        const uint8_t *noteDescPtr;
-        if (parse_elf_note(noteData, &noteName, &noteDescSize, &noteType, &noteDescPtr) < 0) {
-            welf_set_errmsg("get_elf_signature: failed to parse note in section %s: %s", sectionName, welf_errmsg());
+        uint32_t note_desc_size, note_type;
+        const char *note_name;
+        const uint8_t *note_desc_ptr;
+        if (parse_elf_note(note_data, &note_name, &note_desc_size, &note_type, &note_desc_ptr) < 0) {
+            welf_set_errmsg("get_elf_signature: failed to parse note in section %s: %s", section_name, welf_errmsg());
             return -1;
         }
-        if (noteType != WERF_SIGNATURE_NOTE_TYPE) {
+        if (note_type != WERF_SIGNATURE_NOTE_TYPE) {
             welf_set_errmsg("get_elf_signature: unexpected note type in section %s: expected %u, got %u",
-                            sectionName, WERF_SIGNATURE_NOTE_TYPE, noteType);
+                            section_name, WERF_SIGNATURE_NOTE_TYPE, note_type);
             return -1;
         }
-        if (noteDescSize == 0) {
+        if (note_desc_size == 0) {
             return 0;
         }
-        if (!noteDescPtr) {
-            welf_set_errmsg("get_elf_signature: null descriptor pointer for non-zero size in section %s", sectionName);
+        if (!note_desc_ptr) {
+            welf_set_errmsg("get_elf_signature: null descriptor pointer for non-zero size in section %s", section_name);
             return -1;
         }
 
-        unsigned char *result = malloc(noteDescSize);
+        unsigned char *result = malloc(note_desc_size);
         if (!result) {
             welf_set_errmsg("get_elf_signature: failed to allocate memory for desc: %s", strerror(errno));
             return -1;
         }
 
-        memcpy(result, noteDescPtr, noteDescSize);
-        if (outBuf) *outBuf = result;
-        if (outSize) *outSize = noteDescSize;
+        memcpy(result, note_desc_ptr, note_desc_size);
+        if (result_buf) *result_buf = result;
+        if (result_size) *result_size = note_desc_size;
 
         return 0;
     }
@@ -335,7 +328,7 @@ int get_elf_signature(Elf *elf, unsigned char **outBuf, size_t *outSize) {
 //     return 0;
 // }
 
-int save_elf_signature_via_objcopy(const void *data, size_t data_size, const char *elf_path) {
+int welf_save_elf_signature_via_objcopy(const void *data, size_t data_size, const char *elf_path) {
     uint8_t *noteBuf = NULL;
     size_t noteSize = 0;
     if (create_elf_note(WERF_SIGNATURE_NOTE_NAME, data, data_size, WERF_SIGNATURE_NOTE_TYPE, &noteBuf, &noteSize) < 0) {

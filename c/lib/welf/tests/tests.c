@@ -4,9 +4,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <uv.h>
+#include <openssl/sha.h>
 
-#include "welf.h"
-#include "werror.h"
+#include "welf_elf.h"
+#include "welf_error.h"
 
 int main(void) {
     const char *hello_elf_orig = "../../../../test/data/hello.elf";
@@ -47,20 +48,19 @@ int main(void) {
         return EXIT_FAILURE;
     }
 
-    char *hash = compute_elf_hash(elf);
-    if (!hash) {
+    char hash[SHA256_DIGEST_LENGTH * 2 + 1];
+    if (welf_compute_elf_hash(elf, hash) < 0) {
         fprintf(stderr, "compute_elf_hash failed: %s\n", welf_errmsg());
         elf_end(elf);
         fclose(file);
         return EXIT_FAILURE;
     }
-    free(hash);
 
     elf_end(elf);
     fclose(file);
 
     unsigned char signature[] = "signature data";
-    if (save_elf_signature_via_objcopy(signature, sizeof(signature), hello_elf) < 0) {
+    if (welf_save_elf_signature_via_objcopy(signature, sizeof(signature), hello_elf) < 0) {
         fprintf(stderr, "save_elf_signature_via_objcopy failed: %s\n", welf_errmsg());
         return EXIT_FAILURE;
     }
@@ -87,8 +87,7 @@ int main(void) {
 
     size_t retrievedSigLen = 0;
     unsigned char *retrievedSig = NULL;
-    int sigret = get_elf_signature(elf, &retrievedSig, &retrievedSigLen);
-    if (sigret < 0) {
+    if (welf_get_elf_signature(elf, &retrievedSig, &retrievedSigLen) < 0) {
         fprintf(stderr, "get_elf_signature failed: %s\n", welf_errmsg());
         elf_end(elf);
         fclose(file);

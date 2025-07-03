@@ -5,10 +5,13 @@ file(GLOB WELF_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/*.c")
 add_library(welf STATIC ${WELF_SOURCES})
 
 find_path(LIBUV_INCLUDE_DIR NAMES uv.h)
-find_library(LIBUV_LIBRARIES NAMES uv_a libuv_a uv libuv)
-find_library(ZSTD_LIBRARIES NAMES zstd libzstd)
+find_path(ZLIB_INCLUDE_DIR NAMES zlib.h)
+find_library(LIBUV_LIBRARIES NAMES libuv_a.a libuv.a)
+find_library(ZSTD_LIBRARIES NAMES libzstd.a)
+find_library(ZLIB_LIBRARIES NAMES libz.a)
+
+set(OPENSSL_USE_STATIC_LIBS TRUE)
 find_package(OpenSSL REQUIRED)
-find_package(ZLIB REQUIRED)
 
 set(VENDOR_LIBELF_MAKE_FLAGS "")
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
@@ -30,14 +33,15 @@ target_include_directories(welf PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/../../vendor/libelf/include
     ${CMAKE_CURRENT_SOURCE_DIR}/../../vendor/libelf/src
     ${LIBUV_INCLUDE_DIR}
+    ${ZLIB_INCLUDE_DIR}
 )
 
 target_link_libraries(welf PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/../../vendor/libelf/libelf.a
     ${LIBUV_LIBRARIES}
-    OpenSSL::SSL
-    ZLIB::ZLIB
     ${ZSTD_LIBRARIES}
+    ${ZLIB_LIBRARIES}
+    OpenSSL::SSL
 )
 
 file(GLOB WELF_TESTS "${CMAKE_CURRENT_SOURCE_DIR}/tests/*.c")
@@ -46,4 +50,3 @@ target_link_libraries(welf_tests PRIVATE welf)
 
 enable_testing()
 add_test(NAME welf_tests COMMAND welf_tests)
-
