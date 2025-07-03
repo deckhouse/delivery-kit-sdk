@@ -1,9 +1,11 @@
 package image
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"sort"
 	"strconv"
@@ -17,6 +19,11 @@ const (
 	annoNameSignature = "io.deckhouse.deliverykit.signature"
 	annoNameCert      = "io.deckhouse.deliverykit.cert"
 	annoNameChain     = "io.deckhouse.deliverykit.chain"
+)
+
+var (
+	ErrNoSignatureAnnotation = errors.New("no signature annotation")
+	ErrNoCertAnnotation      = errors.New("no cert annotation")
 )
 
 func GetSignatureAnnotationsForImageManifest(_ context.Context, sv *signver.SignerVerifier, manifest *v1.Manifest) (map[string]string, error) {
@@ -37,8 +44,41 @@ func GetSignatureAnnotationsForImageManifest(_ context.Context, sv *signver.Sign
 	return annotations, nil
 }
 
-func VerifyImageManifestSignature(_ context.Context, sv *signver.SignerVerifier, manifest *v1.Manifest) error {
-	panic("not implemented yet")
+func VerifyImageManifestSignature(ctx context.Context, _ *signver.SignerVerifier, manifest *v1.Manifest) error {
+	signatureBase64Encoded, ok := manifest.Annotations[annoNameSignature]
+	if !ok {
+		return ErrNoSignatureAnnotation
+	}
+
+	certBase64Encoded, ok := manifest.Annotations[annoNameCert]
+	if !ok {
+		return ErrNoCertAnnotation
+	}
+
+	chainBase64Encoded, ok := manifest.Annotations[annoNameChain]
+	if ok {
+		_, cert, err := signver.LoadCertFromRef(certBase64Encoded)
+		if err != nil {
+			return fmt.Errorf("load cert from ref: %w", err)
+		}
+		if _, err = signver.VerifyChain(cert, chainBase64Encoded); err != nil {
+			return fmt.Errorf("chain verification: %w", err)
+		}
+	}
+
+	verifier, err := signver.NewVerifierFromCert(ctx, certBase64Encoded)
+	if err != nil {
+		return fmt.Errorf("verifier creation: %w", err)
+	}
+
+	signatureBytes, err := base64.StdEncoding.DecodeString(signatureBase64Encoded)
+	if err != nil {
+		return fmt.Errorf("decoding image manifest singnature from base64: %w", err)
+	}
+	signatureReader := bytes.NewReader(signatureBytes)
+	messageReader := strings.NewReader(getManifestPayloadHash(manifest))
+
+	return verifier.VerifySignature(signatureReader, messageReader)
 }
 
 func getManifestPayloadHash(manifest *v1.Manifest) string {

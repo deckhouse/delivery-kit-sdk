@@ -14,25 +14,33 @@ import (
 )
 
 func VerifyCert(pk crypto.PublicKey, certRef string) ([]byte, *x509.Certificate, error) {
+	certBytes, cert, err := LoadCertFromRef(certRef)
+	if err != nil {
+		return nil, nil, fmt.Errorf("load cert from ref: %w", err)
+	}
+	if cryptoutils.EqualKeys(pk, cert.PublicKey) != nil {
+		return []byte{}, nil, errors.New("public key in certificate does not match the provided public key")
+	}
+	return certBytes, cert, nil
+}
+
+func LoadCertFromRef(certRef string) ([]byte, *x509.Certificate, error) {
 	// Allow both DER and PEM encoding
 	certBytes, err := blob.LoadBase64OrFile(certRef)
 	if err != nil {
-		return []byte{}, nil, fmt.Errorf("read certificate: %w", err)
+		return nil, nil, fmt.Errorf("read certificate: %w", err)
 	}
 	// Handle PEM
 	if bytes.HasPrefix(certBytes, []byte("-----")) {
 		decoded, _ := pem.Decode(certBytes)
 		if decoded.Type != "CERTIFICATE" {
-			return []byte{}, nil, fmt.Errorf("supplied PEM file is not a certificate: %s", certRef)
+			return nil, nil, fmt.Errorf("supplied PEM file is not a certificate: %s", certRef)
 		}
 		certBytes = decoded.Bytes
 	}
 	cert, err := x509.ParseCertificate(certBytes)
 	if err != nil {
-		return []byte{}, nil, fmt.Errorf("parse x509 certificate: %w", err)
-	}
-	if cryptoutils.EqualKeys(pk, cert.PublicKey) != nil {
-		return []byte{}, nil, errors.New("public key in certificate does not match the provided public key")
+		return nil, nil, fmt.Errorf("parse x509 certificate: %w", err)
 	}
 	return certBytes, cert, nil
 }
