@@ -55,7 +55,7 @@ func NewSignerVerifier(ctx context.Context, certRef, certChainRef string, ko Key
 		if err != nil {
 			return nil, fmt.Errorf("get public key: %w", err)
 		}
-		if _, leafCert, err = VerifyCert(pk, certRef); err != nil {
+		if leafCert, err = VerifyCert(pk, certRef); err != nil {
 			return nil, fmt.Errorf("cer verification: %w", err)
 		}
 		pemBytes, err := cryptoutils.MarshalCertificateToPEM(leafCert)
@@ -75,11 +75,15 @@ func NewSignerVerifier(ctx context.Context, certRef, certChainRef string, ko Key
 	}
 
 	// Handle --cert-chain flag
-	certChainBytes, err := VerifyChain(leafCert, certChainRef)
-	if err != nil {
+	if roots, intermediates, err := VerifyChain(leafCert, certChainRef, ""); err != nil {
 		return nil, err
+	} else {
+		certChainPemBytes, err := cryptoutils.MarshalCertificatesToPEM(append(intermediates, roots...))
+		if err != nil {
+			return nil, fmt.Errorf("marshaling root intermediate certificate to PEM: %w", err)
+		}
+		certSigner.Chain = certChainPemBytes
 	}
-	certSigner.Chain = certChainBytes
 
 	return certSigner, nil
 }
