@@ -46,11 +46,11 @@ func LoadCertFromRef(certRef string) (*x509.Certificate, error) {
 }
 
 // VerifyChain verifies certificate chain.
-// rootCertRef argument could be empty string, file path or base64 encoded string.
-// if rootCertRef is empty string, verification assumes that rootCert is last certificate in the chain.
-// if rootCertRef is noy empty string (file path or base64 string), verification uses that certificate as rootCert.
-func VerifyChain(leafCert *x509.Certificate, certChainRef, rootCertRef string) ([]*x509.Certificate, []*x509.Certificate, error) {
-	roots, intermediates, err := LoadRootsAndIntermediatesFromRef(certChainRef, rootCertRef)
+// rootRef argument could be empty string, file path or base64 encoded string.
+// if rootRef is empty string, verification assumes that rootCert is last certificate in the chain.
+// if rootRef is noy empty string (file path or base64 string), verification uses that certificate as rootCert.
+func VerifyChain(certRef, chainRef, rootRef string) ([]*x509.Certificate, []*x509.Certificate, error) {
+	roots, intermediates, err := LoadRootsAndIntermediatesFromRef(chainRef, rootRef)
 	if err != nil {
 		return nil, nil, fmt.Errorf("loading root and intermediate certificates: %w", err)
 	}
@@ -61,8 +61,12 @@ func VerifyChain(leafCert *x509.Certificate, certChainRef, rootCertRef string) (
 	for _, c := range intermediates {
 		subPool.AddCert(c)
 	}
+	leafCert, err := LoadCertFromRef(certRef)
+	if err != nil {
+		return nil, nil, fmt.Errorf("loading leaf cert: %w", err)
+	}
 	if _, err = trustedCert(leafCert, rootPool, subPool); err != nil {
-		return nil, nil, fmt.Errorf("unable to validate certificate chain: %w", err)
+		return nil, nil, fmt.Errorf("validation of certificate chain: %w", err)
 	}
 	// Verify SCT if present in the leaf certificate.
 	if contains, err := containsSCT(leafCert.Raw); err != nil {
@@ -73,13 +77,13 @@ func VerifyChain(leafCert *x509.Certificate, certChainRef, rootCertRef string) (
 	return roots, intermediates, nil
 }
 
-func LoadRootsAndIntermediatesFromRef(certChainRef, rootRef string) ([]*x509.Certificate, []*x509.Certificate, error) {
+func LoadRootsAndIntermediatesFromRef(chainRef, rootRef string) ([]*x509.Certificate, []*x509.Certificate, error) {
 	var rootCerts []*x509.Certificate
 	var intermediateCerts []*x509.Certificate
 
-	if certChainRef != "" {
+	if chainRef != "" {
 		// Accept only PEM encoded certificate chain
-		certChainBytes, err := blob.LoadBase64OrFile(certChainRef)
+		certChainBytes, err := blob.LoadBase64OrFile(chainRef)
 		if err != nil {
 			return nil, nil, fmt.Errorf("reading certificate chain from reference: %w", err)
 		}
@@ -91,7 +95,7 @@ func LoadRootsAndIntermediatesFromRef(certChainRef, rootRef string) ([]*x509.Cer
 
 	if rootRef != "" {
 		// Accept only PEM encoded certificate chain
-		rootCertBytes, err := blob.LoadBase64OrFile(certChainRef)
+		rootCertBytes, err := blob.LoadBase64OrFile(chainRef)
 		if err != nil {
 			return nil, nil, fmt.Errorf("reading certificate chain from reference: %w", err)
 		}
