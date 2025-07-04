@@ -58,14 +58,14 @@ int main(void) {
     }
     free(hash);
 
-    elf_end(elf);
-    fclose(file);
-
     unsigned char signature[] = "signature data";
-    if (welf_save_elf_signature_via_objcopy(signature, sizeof(signature), hello_elf) < 0) {
+    if (welf_save_elf_signature_via_objcopy(elf, signature, sizeof(signature), hello_elf) < 0) {
         fprintf(stderr, "save_elf_signature_via_objcopy failed: %s\n", welf_errmsg());
         return EXIT_FAILURE;
     }
+
+    elf_end(elf);
+    fclose(file);
 
     file = fopen(hello_elf, "r");
     if (!file) {
