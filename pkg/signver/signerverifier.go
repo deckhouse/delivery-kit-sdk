@@ -2,7 +2,6 @@ package signver
 
 import (
 	"context"
-	"crypto/x509"
 	"errors"
 	"fmt"
 
@@ -45,8 +44,6 @@ func NewSignerVerifier(ctx context.Context, certRef, certChainRef string, ko Key
 		SignerVerifier: k,
 	}
 
-	var leafCert *x509.Certificate
-
 	// NOTE: PKCS11 keys are unsupported
 
 	// Handle --cert flag
@@ -55,7 +52,8 @@ func NewSignerVerifier(ctx context.Context, certRef, certChainRef string, ko Key
 		if err != nil {
 			return nil, fmt.Errorf("get public key: %w", err)
 		}
-		if leafCert, err = VerifyCert(pk, certRef); err != nil {
+		leafCert, err := VerifyCert(pk, certRef)
+		if err != nil {
 			return nil, fmt.Errorf("cer verification: %w", err)
 		}
 		pemBytes, err := cryptoutils.MarshalCertificateToPEM(leafCert)
@@ -75,7 +73,7 @@ func NewSignerVerifier(ctx context.Context, certRef, certChainRef string, ko Key
 	}
 
 	// Handle --cert-chain flag
-	if roots, intermediates, err := VerifyChain(leafCert, certChainRef, ""); err != nil {
+	if roots, intermediates, err := VerifyChain(certRef, certChainRef, ""); err != nil {
 		return nil, err
 	} else {
 		certChainPemBytes, err := cryptoutils.MarshalCertificatesToPEM(append(intermediates, roots...))
