@@ -60,37 +60,21 @@ int go_elf_init(const char* elf_path, FILE** out_file, Elf** out_elf) {
 
     return 0;
 }
-
-int go_elf_compute_hash_and_grab_signature(FILE* file, Elf* elf, char** out_hash, unsigned char** out_sig, size_t* out_sig_size) {
-    char hash[SHA256_DIGEST_LENGTH * 2 + 1];
-    if (welf_compute_elf_hash(elf, hash) < 0) {
-        go_set_errmsg("compute_elf_hash failed: %s", "unknown error");
-        return -1;
-    }
-
-    if (welf_get_elf_signature(elf, out_sig, out_sig_size) < 0) {
-        go_set_errmsg("get_elf_signature failed: %s", welf_errmsg());
-        return -1;
-    }
-
-    *out_hash = strdup(hash);
-
-    return 0;
-}
 */
 import "C"
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"unsafe"
 
-	"github.com/sigstore/sigstore/pkg/signature"
+	"github.com/deckhouse/delivery-kit-sdk/pkg/signver"
 )
 
 //go:generate sh -c "cmake -S ../../../c/lib/welf -B ../../../c/lib/welf/build -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE:-Release} && cmake --build ../../../c/lib/welf/build"
 
-func Sign(ctx context.Context, signerVerifier signature.SignerVerifier, path string) error {
+func Sign(ctx context.Context, path string, signerVerifier *signver.SignerVerifier) error {
 	cPath := C.CString(path)
 	defer C.free(unsafe.Pointer(cPath))
 
@@ -102,40 +86,102 @@ func Sign(ctx context.Context, signerVerifier signature.SignerVerifier, path str
 	defer C.elf_end(cElf)
 	defer C.fclose(cFile)
 
-	var cNewHash *C.char
-	var cOldSignatureBuf *C.uchar
-	var cOldSignatureSize C.size_t
-	if code := C.go_elf_compute_hash_and_grab_signature(cFile, cElf, &cNewHash, &cOldSignatureBuf, &cOldSignatureSize); code < 0 {
-		return fmt.Errorf("compute hash and grab signature failed: %s", C.GoString(C.go_errmsg()))
+	var cNewHashBuf *C.char
+	var cNewHashSize C.size_t
+	if C.welf_compute_elf_hash(cElf, &cNewHashBuf, &cNewHashSize) < 0 {
+		return fmt.Errorf("compute elf hash failed: %s", C.GoString(C.welf_errmsg()))
 	}
-	defer C.free(unsafe.Pointer(cNewHash))
+	defer C.free(unsafe.Pointer(cNewHashBuf))
 
-	var oldSignature []byte
-	if cOldSignatureBuf != nil {
-		defer C.free(unsafe.Pointer(cOldSignatureBuf))
-		oldSignature = C.GoBytes(unsafe.Pointer(cOldSignatureBuf), C.int(cOldSignatureSize))
+	var cOldSignatureDataBuf *C.uchar
+	var cOldSignatureDataSize C.size_t
+	if C.welf_get_elf_signature(cElf, &cOldSignatureDataBuf, &cOldSignatureDataSize) < 0 {
+		return fmt.Errorf("get elf signature failed: %s", C.GoString(C.welf_errmsg()))
+	}
+	var oldSignatureDataBytes []byte
+	if cOldSignatureDataBuf != nil {
+		defer C.free(unsafe.Pointer(cOldSignatureDataBuf))
+		oldSignatureDataBytes = C.GoBytes(unsafe.Pointer(cOldSignatureDataBuf), C.int(cOldSignatureDataSize))
 	}
 
-	hash := C.GoString(cNewHash)
-	newSignature, err := signerVerifier.SignMessage(bytes.NewReader([]byte(hash)))
+	hashBytes := C.GoBytes(unsafe.Pointer(cNewHashBuf), C.int(cNewHashSize))
+	newSignatureBytes, err := signerVerifier.SignMessage(bytes.NewReader(hashBytes))
 	if err != nil {
 		return fmt.Errorf("sign message: %w", err)
 	}
 
-	if bytes.Equal(oldSignature, newSignature) {
+	newSignatureData := &SignatureData{
+		Signature: newSignatureBytes,
+		Cert:      signerVerifier.Cert,
+	}
+
+	newSignatureDataBytes, err := json.Marshal(newSignatureData)
+	if err != nil {
+		return fmt.Errorf("marshal new signature data: %w", err)
+	}
+
+	if bytes.Equal(oldSignatureDataBytes, newSignatureDataBytes) {
 		return nil
 	}
 
-	cNewSignature := unsafe.Pointer(C.CBytes(newSignature))
-	defer C.free(cNewSignature)
+	cNewSignatureDataBytes := unsafe.Pointer(C.CBytes(newSignatureDataBytes))
+	defer C.free(cNewSignatureDataBytes)
 
-	if code := C.welf_save_elf_signature_via_objcopy(cNewSignature, C.size_t(len(newSignature)), cPath); code < 0 {
+	if code := C.welf_save_elf_signature_via_objcopy(cNewSignatureDataBytes, C.size_t(len(newSignatureDataBytes)), cPath); code < 0 {
 		return fmt.Errorf("saving ELF signature failed: %s", C.GoString(C.go_errmsg()))
 	}
 
 	return nil
 }
 
-func Verify(ctx context.Context, path string) error {
-	panic("not implemented yet")
+// FIXME(ilya-lesikov): signerVerifier doesn't respect cert saved in signature.
+func Verify(ctx context.Context, path string, signerVerifier *signver.SignerVerifier) error {
+	cPath := C.CString(path)
+	defer C.free(unsafe.Pointer(cPath))
+
+	var cFile *C.FILE
+	var cElf *C.Elf
+	if code := C.go_elf_init(cPath, &cFile, &cElf); code < 0 {
+		return fmt.Errorf("ELF init failed: %s", C.GoString(C.go_errmsg()))
+	}
+	defer C.elf_end(cElf)
+	defer C.fclose(cFile)
+
+	var cHashBuf *C.char
+	var cHashSize C.size_t
+	if C.welf_compute_elf_hash(cElf, &cHashBuf, &cHashSize) < 0 {
+		return fmt.Errorf("compute elf hash failed: %s", C.GoString(C.welf_errmsg()))
+	}
+	defer C.free(unsafe.Pointer(cHashBuf))
+
+	var cSignatureDataBuf *C.uchar
+	var cSignatureDataSize C.size_t
+	if C.welf_get_elf_signature(cElf, &cSignatureDataBuf, &cSignatureDataSize) < 0 {
+		return fmt.Errorf("get elf signature failed: %s", C.GoString(C.welf_errmsg()))
+	}
+	signatureDataBytes := []byte{}
+	if cSignatureDataBuf != nil {
+		defer C.free(unsafe.Pointer(cSignatureDataBuf))
+		signatureDataBytes = C.GoBytes(unsafe.Pointer(cSignatureDataBuf), C.int(cSignatureDataSize))
+	}
+
+	hashBytes := C.GoBytes(unsafe.Pointer(cHashBuf), C.int(cHashSize))
+
+	var signatureData *SignatureData
+	if err := json.Unmarshal(signatureDataBytes, &signatureData); err != nil {
+		return fmt.Errorf("unmarshal signature data: %w", err)
+	}
+
+	signatureData.Cert
+
+	if err := signerVerifier.VerifySignature(bytes.NewReader(signatureData.Signature), bytes.NewReader(hashBytes)); err != nil {
+		return fmt.Errorf("verify signature: %w", err)
+	}
+
+	return nil
+}
+
+type SignatureData struct {
+	Signature []byte `json:"io.deckhouse.deliverykit.signature"`
+	Cert      []byte `json:"io.deckhouse.deliverykit.cert"`
 }

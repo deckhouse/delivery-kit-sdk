@@ -1,7 +1,7 @@
 #ifndef WELF_ELF_H
 #define WELF_ELF_H
 
-int welf_compute_elf_hash(Elf *elf, char *result_buf);
+int welf_compute_elf_hash(Elf *elf, char **result_buf, size_t *result_size);
 
 int welf_get_elf_signature(Elf *elf, unsigned char **result_buf, size_t *result_size);
 

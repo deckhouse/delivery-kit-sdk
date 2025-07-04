@@ -5,6 +5,7 @@ file(GLOB WELF_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/*.c")
 add_library(welf STATIC ${WELF_SOURCES})
 
 find_path(LIBUV_INCLUDE_DIR NAMES uv.h)
+find_path(ZSTD_INCLUDE_DIR NAMES zstd.h zdict.h zstd_errors.h)
 find_path(ZLIB_INCLUDE_DIR NAMES zlib.h)
 find_library(LIBUV_LIBRARIES NAMES libuv_a.a libuv.a)
 find_library(ZSTD_LIBRARIES NAMES libzstd.a)
@@ -33,6 +34,7 @@ target_include_directories(welf PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/../../vendor/libelf/include
     ${CMAKE_CURRENT_SOURCE_DIR}/../../vendor/libelf/src
     ${LIBUV_INCLUDE_DIR}
+    ${ZSTD_INCLUDE_DIR}
     ${ZLIB_INCLUDE_DIR}
 )
 

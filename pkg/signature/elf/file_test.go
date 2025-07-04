@@ -5,6 +5,7 @@ package elf_test
 
 import (
 	"bytes"
+	"context"
 	"crypto"
 	"encoding/base64"
 	"fmt"
@@ -13,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/deckhouse/delivery-kit-sdk/pkg/signature/elf"
+	"github.com/deckhouse/delivery-kit-sdk/pkg/signver"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/sigstore/sigstore/pkg/signature"
@@ -24,7 +26,8 @@ const helloElfFileWithSignature = "../../../test/data/hello_with_signature.elf"
 var _ = Describe("signature/elf", func() {
 	DescribeTable("should add new signature",
 		func(ctx SpecContext) {
-			signerVerifier := &fakeSignerVerifier{}
+			// FIXME(ilya-lesikov):
+			signerVerifier := signver.NewSignerVerifier(context.Background())
 
 			oldElfData, err := os.ReadFile(helloElfFile)
 			Expect(err).To(Succeed())
@@ -83,42 +86,3 @@ var _ = Describe("signature/elf", func() {
 		),
 	)
 })
-
-type fakeSignerVerifier struct{}
-
-func (s *fakeSignerVerifier) PublicKey(opts ...signature.PublicKeyOption) (crypto.PublicKey, error) {
-	return []byte(strings.Repeat("0", 32)), nil
-}
-
-func (s *fakeSignerVerifier) SignMessage(message io.Reader, opts ...signature.SignOption) ([]byte, error) {
-	msg, err := io.ReadAll(message)
-	if err != nil {
-		return nil, err
-	}
-
-	result := make([]byte, base64.StdEncoding.EncodedLen(len(msg)))
-	base64.StdEncoding.Encode(result, msg)
-
-	return result, nil
-}
-
-func (s *fakeSignerVerifier) VerifySignature(signature, message io.Reader, opts ...signature.VerifyOption) error {
-	sig, err := io.ReadAll(signature)
-	if err != nil {
-		return err
-	}
-
-	msg, err := io.ReadAll(message)
-	if err != nil {
-		return err
-	}
-
-	newSig := make([]byte, base64.StdEncoding.EncodedLen(len(msg)))
-	base64.StdEncoding.Encode(msg, newSig)
-
-	if !bytes.Equal(sig, newSig) {
-		return fmt.Errorf("signatures don't match")
-	}
-
-	return nil
-}

@@ -79,7 +79,7 @@
 
 // FIXME: ignore bsign signature
 // FIXME: add elf header, program headers, section headers, something other? to the hash
-int welf_compute_elf_hash(Elf *elf, char *result_buf) {
+int welf_compute_elf_hash(Elf *elf, char **result_buf, size_t *result_size) {
     unsigned char hash[SHA256_DIGEST_LENGTH];
     EVP_MD_CTX *ctx = EVP_MD_CTX_new();
     if (!ctx) {
@@ -155,17 +155,23 @@ int welf_compute_elf_hash(Elf *elf, char *result_buf) {
 
     EVP_MD_CTX_free(ctx);
 
+    char *hex_buf = malloc(SHA256_DIGEST_LENGTH * 2 + 1);
+    if (!hex_buf) {
+        welf_set_errmsg("compute_elf_hash: failed to allocate memory for hex hash");
+        return -1;
+    }
+
     for (int i = 0; i < SHA256_DIGEST_LENGTH; i++)
-        sprintf(result_buf + i * 2, "%02x", hash[i]);
-    result_buf[SHA256_DIGEST_LENGTH * 2] = '\0';
+        sprintf(hex_buf + i * 2, "%02x", hash[i]);
+    hex_buf[SHA256_DIGEST_LENGTH * 2] = '\0';
+
+    if (result_buf) *result_buf = hex_buf;
+    if (result_size) *result_size = SHA256_DIGEST_LENGTH * 2;
 
     return 0;
 }
 
 int welf_get_elf_signature(Elf *elf, unsigned char **result_buf, size_t *result_size) {
-    if (result_buf) *result_buf = NULL;
-    if (result_size) *result_size = 0;
-
     size_t str_table_index;
     if (elf_getshdrstrndx(elf, &str_table_index) != 0) {
         welf_set_errmsg("get_elf_signature: get string table index failed: %s", elf_errmsg(-1));

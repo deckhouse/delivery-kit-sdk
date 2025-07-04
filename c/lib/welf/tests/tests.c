@@ -48,13 +48,15 @@ int main(void) {
         return EXIT_FAILURE;
     }
 
-    char hash[SHA256_DIGEST_LENGTH * 2 + 1];
-    if (welf_compute_elf_hash(elf, hash) < 0) {
+    char *hash = NULL;
+    size_t hashSize = 0;
+    if (welf_compute_elf_hash(elf, &hash, &hashSize) < 0) {
         fprintf(stderr, "compute_elf_hash failed: %s\n", welf_errmsg());
         elf_end(elf);
         fclose(file);
         return EXIT_FAILURE;
     }
+    free(hash);
 
     elf_end(elf);
     fclose(file);
