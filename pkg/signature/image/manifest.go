@@ -22,11 +22,11 @@ func GetSignatureAnnotationsForImageManifest(_ context.Context, sv *signver.Sign
 	}
 
 	sigBundle := signature.NewBundle(signedPayload, sv.Cert, sv.Chain)
-	return bundleToAnnotations(sigBundle), nil
+	return sigBundle.ToMap(), nil
 }
 
 func VerifyImageManifestSignature(ctx context.Context, rootCertRef string, manifest *v1.Manifest) error {
-	sigBundle, err := newBundleFromAnnotations(manifest.Annotations)
+	sigBundle, err := signature.NewBundleFromMap(manifest.Annotations)
 	if err != nil {
 		return fmt.Errorf("signature bundle creation: %w", err)
 	}
@@ -66,7 +66,9 @@ func getManifestPayloadHash(manifest *v1.Manifest) string {
 		hashes = append(hashes, layer.Digest.String(), string(layer.MediaType), strconv.FormatInt(layer.Size, 10))
 	}
 
-	annotations := safeAnnotations(manifest.Annotations)
+	// filter out keys of signature bundle
+	annotations := lo.OmitByKeys(manifest.Annotations, lo.Keys(signature.NewEmptyBundle().ToMap()))
+
 	keys := lo.Keys(annotations)
 	slices.Sort(keys)
 
