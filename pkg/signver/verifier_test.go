@@ -2,7 +2,6 @@ package signver_test
 
 import (
 	"bytes"
-	"encoding/base64"
 
 	"github.com/deckhouse/delivery-kit-sdk/pkg/signver"
 	. "github.com/onsi/ginkgo/v2"
@@ -15,7 +14,7 @@ var _ = Describe("Verifier", func() {
 		func(ctx SpecContext, OptsFunc OptionsFunc) {
 			passFunc := cryptoutils.SkipPassword
 
-			keyFile, certFile, chainFile, _, _, _ := generateCertificateFiles(GinkgoT().TempDir(), passFunc)
+			keyFile, certFile, chainFile, _, _, _, _, _ := generateCertificateFiles(GinkgoT().TempDir(), passFunc, false)
 
 			certNew, chainNew, koNew := OptsFunc(certFile, chainFile, signver.KeyOpts{
 				KeyRef:   keyFile,
@@ -45,10 +44,10 @@ var _ = Describe("Verifier", func() {
 		Entry(
 			"with key, cert and cert chain as base64",
 			func(certFile, chainFile string, opts signver.KeyOpts) (string, string, signver.KeyOpts) {
-				return base64.StdEncoding.EncodeToString(readFile(certFile)),
-					base64.StdEncoding.EncodeToString(readFile(chainFile)),
+				return readFileContentAsBase64(certFile),
+					readFileContentAsBase64(chainFile),
 					signver.KeyOpts{
-						KeyRef:   base64.StdEncoding.EncodeToString(readFile(opts.KeyRef)),
+						KeyRef:   readFileContentAsBase64(opts.KeyRef),
 						PassFunc: opts.PassFunc,
 					}
 			},
