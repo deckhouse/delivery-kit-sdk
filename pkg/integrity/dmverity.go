@@ -15,8 +15,8 @@ import (
 )
 
 const (
-	annoNameBuildTimestamp   = "io.deckhouse.deliverykit.build-timestamp"
-	annoNameDMVerityRootHash = "io.deckhouse.deliverykit.dm-verity-root-hash"
+	annoNameBuildTimestamp   = "io.deckhouse.delivery-kit.build-timestamp"
+	annoNameDMVerityRootHash = "io.deckhouse.delivery-kit.dm-verity-root-hash"
 
 	staticMkfsBuildTimestamp = "1750791050" // 2025-06-24T18:50:50Z
 	magicVeritySalt          = "dc0f616e4bf75776061d5ffb7a6f45e1313b7cc86f3aa49b68de4f6d187bad2b"
