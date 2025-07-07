@@ -10,9 +10,9 @@ import (
 )
 
 const (
-	annoNameSignature = "io.deckhouse.deliverykit.signature"
-	annoNameCert      = "io.deckhouse.deliverykit.cert"
-	annoNameChain     = "io.deckhouse.deliverykit.chain"
+	annoNameSignature = "io.deckhouse.delivery-kit.signature"
+	annoNameCert      = "io.deckhouse.delivery-kit.cert"
+	annoNameChain     = "io.deckhouse.delivery-kit.chain"
 )
 
 var (
