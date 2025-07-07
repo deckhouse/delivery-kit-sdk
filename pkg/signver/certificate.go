@@ -97,11 +97,11 @@ func LoadRootsAndIntermediatesFromRef(chainRef, rootRef string) ([]*x509.Certifi
 		// Accept only PEM encoded certificate chain
 		rootCertBytes, err := blob.LoadBase64OrFile(rootRef)
 		if err != nil {
-			return nil, nil, fmt.Errorf("reading certificate chain from reference: %w", err)
+			return nil, nil, fmt.Errorf("reading root certificate from reference: %w", err)
 		}
 		rootCerts, err = cryptoutils.LoadCertificatesFromPEM(bytes.NewReader(rootCertBytes))
 		if err != nil {
-			return nil, nil, fmt.Errorf("loading certificate chain: %w", err)
+			return nil, nil, fmt.Errorf("loading root certificate: %w", err)
 		}
 	}
 
