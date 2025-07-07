@@ -24,12 +24,12 @@ var _ = Describe("SignerVerifier", func() {
 
 			keyFile, certFile, chainFile, _, _, _ := generateCertificateFiles(GinkgoT().TempDir(), passFunc)
 
-			certFileModified, chainFileModified, koModified := OptsFunc(certFile, chainFile, signver.KeyOpts{
+			certNew, chainNew, koNew := OptsFunc(certFile, chainFile, signver.KeyOpts{
 				KeyRef:   keyFile,
 				PassFunc: passFunc,
 			})
 
-			sv, err := signver.NewSignerVerifier(ctx, certFileModified, chainFileModified, koModified)
+			sv, err := signver.NewSignerVerifier(ctx, certNew, chainNew, koNew)
 			Expect(err).To(Succeed())
 
 			message := []byte("sign me")
