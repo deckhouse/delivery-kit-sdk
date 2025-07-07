@@ -14,7 +14,7 @@ import (
 )
 
 func VerifyCert(pk crypto.PublicKey, certRef string) (*x509.Certificate, error) {
-	cert, err := LoadCertFromRef(certRef)
+	cert, err := loadCertFromRef(certRef)
 	if err != nil {
 		return nil, fmt.Errorf("load cert from ref: %w", err)
 	}
@@ -24,7 +24,7 @@ func VerifyCert(pk crypto.PublicKey, certRef string) (*x509.Certificate, error) 
 	return cert, nil
 }
 
-func LoadCertFromRef(certRef string) (*x509.Certificate, error) {
+func loadCertFromRef(certRef string) (*x509.Certificate, error) {
 	// Allow both DER and PEM encoding
 	certBytes, err := blob.LoadBase64OrFile(certRef)
 	if err != nil {
@@ -50,7 +50,7 @@ func LoadCertFromRef(certRef string) (*x509.Certificate, error) {
 // if rootRef is empty string, verification assumes that rootCert is last certificate in the chain.
 // if rootRef is noy empty string (file path or base64 string), verification uses that certificate as rootCert.
 func VerifyChain(certRef, chainRef, rootRef string) ([]*x509.Certificate, []*x509.Certificate, error) {
-	roots, intermediates, err := LoadRootsAndIntermediatesFromRef(chainRef, rootRef)
+	roots, intermediates, err := loadRootsAndIntermediatesFromRef(chainRef, rootRef)
 	if err != nil {
 		return nil, nil, fmt.Errorf("loading root and intermediate certificates: %w", err)
 	}
@@ -61,7 +61,7 @@ func VerifyChain(certRef, chainRef, rootRef string) ([]*x509.Certificate, []*x50
 	for _, c := range intermediates {
 		subPool.AddCert(c)
 	}
-	leafCert, err := LoadCertFromRef(certRef)
+	leafCert, err := loadCertFromRef(certRef)
 	if err != nil {
 		return nil, nil, fmt.Errorf("loading leaf cert: %w", err)
 	}
@@ -77,7 +77,7 @@ func VerifyChain(certRef, chainRef, rootRef string) ([]*x509.Certificate, []*x50
 	return roots, intermediates, nil
 }
 
-func LoadRootsAndIntermediatesFromRef(chainRef, rootRef string) ([]*x509.Certificate, []*x509.Certificate, error) {
+func loadRootsAndIntermediatesFromRef(chainRef, rootRef string) ([]*x509.Certificate, []*x509.Certificate, error) {
 	var rootCerts []*x509.Certificate
 	var intermediateCerts []*x509.Certificate
 
