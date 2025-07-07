@@ -49,7 +49,7 @@ func newBundleFromAnnotations(annotations map[string]string) (*signature.Bundle,
 	}
 
 	if chainBase64Encoded, ok := annotations[annoNameChain]; ok {
-		if cert, err = base64.StdEncoding.DecodeString(chainBase64Encoded); err != nil {
+		if chain, err = base64.StdEncoding.DecodeString(chainBase64Encoded); err != nil {
 			return nil, fmt.Errorf("chain decoding: %w", err)
 		}
 	}
