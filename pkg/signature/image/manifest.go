@@ -32,7 +32,7 @@ func VerifyImageManifestSignature(ctx context.Context, rootCertRef string, manif
 	}
 
 	if _, _, err = signver.VerifyChain(sigBundle.Cert.Base64String(), sigBundle.Chain.Base64String(), rootCertRef); err != nil {
-		return fmt.Errorf("chain verification: %w", err)
+		return fmt.Errorf("cert verification: %w", err)
 	}
 
 	verifier, err := signver.NewVerifierFromCert(ctx, sigBundle.Cert.Base64String())
