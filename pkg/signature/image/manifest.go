@@ -31,6 +31,10 @@ func VerifyImageManifestSignature(ctx context.Context, rootCertRef string, manif
 		return fmt.Errorf("signature bundle creation: %w", err)
 	}
 
+	if rootCertRef == "" {
+		return fmt.Errorf("root cert ref required")
+	}
+
 	if _, _, err = signver.VerifyChain(sigBundle.Cert.Base64String(), sigBundle.Chain.Base64String(), rootCertRef); err != nil {
 		return fmt.Errorf("cert verification: %w", err)
 	}
