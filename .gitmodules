@@ -1,0 +1,3 @@
+[submodule "c/vendor/libelf"]
+	path = c/vendor/libelf
+	url = https://github.com/werf/3p-libelf

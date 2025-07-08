@@ -11,7 +11,7 @@ tasks:
     cmds:
       - golangci-lint run {{.CLI_ARGS}} {{.paths | default "./..."}}
     env:
-      CGO_ENABLED: "0"
+      CGO_ENABLED: "1"
 
   format:
     desc: 'Run all code formatters. Important vars: "paths".'
@@ -31,6 +31,7 @@ tasks:
       - gofumpt -extra -w {{.CLI_ARGS}} {{.paths | default "pkg/ test/ internal/"}}
 
   test:unit:
+    desc: 'Run all unit tests. Important vars: "paths".'
     vars:
       parallel: '{{.parallel | default "true"}}'
       paths: '{{.paths | default "./pkg/... ./internal/..." }}'
@@ -45,6 +46,21 @@ tasks:
       - deps:install:ginkgo
       - deps:install:golangci-lint
       - deps:install:gofumpt
+      - deps:install:c
+
+  deps:install:c:
+    desc: "Install c libraries."
+    cmds:
+      - git submodule update --init --recursive c/vendor/libelf
+      - |
+        if command -v apt-get >/dev/null 2>&1; then
+          export DEBIAN_FRONTEND=noninteractive
+          sudo apt-get -y update
+          sudo apt-get install -y build-essential libuv1-dev libzstd-dev zlib1g-dev libssl-dev cmake
+        else
+          echo "Can't install C dependencies automatically, do it manually."
+          exit 1
+        fi
 
   deps:install:gci:
     desc: "Install gci binary."
@@ -67,3 +83,13 @@ tasks:
     desc: "Install gofumpt binary."
     cmds:
       - go install mvdan.cc/gofumpt@v0.7.0
+
+  generate:
+    desc: "Run all generators."
+    deps:
+      - go:generate
+
+  go:generate:
+    desc: "Run go-generate."
+    cmds:
+    - go generate ./...

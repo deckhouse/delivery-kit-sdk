@@ -12,6 +12,7 @@ linters-settings:
   gocritic:
     disabled-checks:
       - ifElseChain
+      - dupSubExpr
   errorlint:
     comparison: false
     asserts: false
