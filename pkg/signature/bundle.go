@@ -13,8 +13,8 @@ import (
 )
 
 var (
-	ErrNoSignatureAnnotation = errors.New("no signature annotation")
-	ErrNoCertAnnotation      = errors.New("no cert annotation")
+	ErrNoSignatureAnnotation = errors.New("no signature")
+	ErrNoCertAnnotation      = errors.New("no cert")
 	ErrCertRequired          = errors.New("cert required")
 )
 
