@@ -1,1 +1,6 @@
 /.idea
+
+*.os
+*.o
+*.so
+/c/lib/welf/build

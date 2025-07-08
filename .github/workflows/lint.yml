@@ -21,6 +21,9 @@ jobs:
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Install C dependencies
+        run: task -p deps:install:c
+
       - name: Install golangci-lint
         run: task -p deps:install:golangci-lint
 
