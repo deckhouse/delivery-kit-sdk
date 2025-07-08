@@ -2,8 +2,6 @@ package signver_test
 
 import (
 	"bytes"
-	"encoding/base64"
-	"os"
 
 	"github.com/deckhouse/delivery-kit-sdk/pkg/signver"
 	"github.com/deckhouse/delivery-kit-sdk/test/pkg/cert_utils"
@@ -14,17 +12,21 @@ import (
 
 var _ = Describe("SignerVerifier", func() {
 	DescribeTable("should sign and verify",
-		func(ctx SpecContext, OptsFunc OptionsFunc) {
+		func(ctx SpecContext, useBase64Encoding bool) {
 			passFunc := cryptoutils.SkipPassword
 
-			keyFile, certFile, chainFile, _, _, _, _, _ := cert_utils.GenerateCertificateFiles(GinkgoT().TempDir(), passFunc, false)
-
-			certNew, chainNew, koNew := OptsFunc(certFile, chainFile, signver.KeyOpts{
-				KeyRef:   keyFile,
-				PassFunc: passFunc,
+			result := cert_utils.GenerateCertificatesWithOptions(cert_utils.GenerateCertificatesOptions{
+				PassFunc:          passFunc,
+				TmpDir:            GinkgoT().TempDir(),
+				NoIntermediates:   false,
+				NoRootInChain:     false,
+				UseBase64Encoding: useBase64Encoding,
 			})
 
-			sv, err := signver.NewSignerVerifier(ctx, certNew, chainNew, koNew)
+			sv, err := signver.NewSignerVerifier(ctx, result.LeafRef, result.ChainRef, signver.KeyOpts{
+				PassFunc: passFunc,
+				KeyRef:   result.PrivRef,
+			})
 			Expect(err).To(Succeed())
 
 			message := []byte("sign me")
@@ -37,27 +39,11 @@ var _ = Describe("SignerVerifier", func() {
 		},
 		Entry(
 			"with key, cert and cert chain as file paths",
-			func(certFile, chainFile string, opts signver.KeyOpts) (string, string, signver.KeyOpts) {
-				return certFile, chainFile, opts
-			},
+			false,
 		),
 		Entry(
 			"with key, cert and cert chain as base64",
-			func(certFile, chainFile string, opts signver.KeyOpts) (string, string, signver.KeyOpts) {
-				return readFileContentAsBase64(certFile), readFileContentAsBase64(chainFile),
-					signver.KeyOpts{
-						KeyRef:   readFileContentAsBase64(opts.KeyRef),
-						PassFunc: opts.PassFunc,
-					}
-			},
+			true,
 		),
 	)
 })
-
-type OptionsFunc func(certFile, chainFile string, ko signver.KeyOpts) (certFileModified, chainFileModified string, koModified signver.KeyOpts)
-
-func readFileContentAsBase64(filePath string) string {
-	raw, err := os.ReadFile(filePath)
-	Expect(err).To(Succeed())
-	return base64.StdEncoding.EncodeToString(raw)
-}
