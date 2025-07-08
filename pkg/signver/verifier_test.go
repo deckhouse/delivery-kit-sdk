@@ -4,6 +4,7 @@ import (
 	"bytes"
 
 	"github.com/deckhouse/delivery-kit-sdk/pkg/signver"
+	"github.com/deckhouse/delivery-kit-sdk/test/pkg/cert_utils"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
@@ -14,7 +15,7 @@ var _ = Describe("Verifier", func() {
 		func(ctx SpecContext, OptsFunc OptionsFunc) {
 			passFunc := cryptoutils.SkipPassword
 
-			keyFile, certFile, chainFile, _, _, _, _, _ := generateCertificateFiles(GinkgoT().TempDir(), passFunc, false)
+			keyFile, certFile, chainFile, _, _, _, _, _ := cert_utils.GenerateCertificateFiles(GinkgoT().TempDir(), passFunc, false)
 
 			certNew, chainNew, koNew := OptsFunc(certFile, chainFile, signver.KeyOpts{
 				KeyRef:   keyFile,

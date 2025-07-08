@@ -2,6 +2,7 @@ package signver_test
 
 import (
 	"github.com/deckhouse/delivery-kit-sdk/pkg/signver"
+	"github.com/deckhouse/delivery-kit-sdk/test/pkg/cert_utils"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
@@ -10,7 +11,7 @@ import (
 var _ = Describe("certificate", func() {
 	DescribeTable("VerifyCert()",
 		func(useBase64Encoding bool) {
-			_, certFile, _, _, privKey, expectedLeafCert, _, _ := generateCertificateFiles(GinkgoT().TempDir(), cryptoutils.SkipPassword, false)
+			_, certFile, _, _, privKey, expectedLeafCert, _, _ := cert_utils.GenerateCertificateFiles(GinkgoT().TempDir(), cryptoutils.SkipPassword, false)
 
 			var certRef string
 			if useBase64Encoding {
@@ -35,7 +36,7 @@ var _ = Describe("certificate", func() {
 
 	DescribeTable("VerifyChain()",
 		func(useBase64Encoding, useStandaloneRootCa bool) {
-			_, certFile, chainFile, rootFile, _, _, chainCerts, rootCert := generateCertificateFiles(GinkgoT().TempDir(), cryptoutils.SkipPassword, useStandaloneRootCa)
+			_, certFile, chainFile, rootFile, _, _, chainCerts, rootCert := cert_utils.GenerateCertificateFiles(GinkgoT().TempDir(), cryptoutils.SkipPassword, useStandaloneRootCa)
 
 			var certRef string
 			var chainRef string
