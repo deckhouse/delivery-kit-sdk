@@ -1,7 +1,6 @@
 package image
 
 import (
-	"bytes"
 	"context"
 	"crypto/sha256"
 	"fmt"
@@ -15,46 +14,44 @@ import (
 	"github.com/samber/lo"
 )
 
-func GetSignatureAnnotationsForImageManifest(_ context.Context, sv *signver.SignerVerifier, manifest *v1.Manifest) (map[string]string, error) {
-	signedPayload, err := sv.SignMessage(strings.NewReader(getManifestPayloadHash(manifest)))
+func GetSignatureAnnotationsForImageManifest(ctx context.Context, sv *signver.SignerVerifier, manifest *v1.Manifest) (map[string]string, error) {
+	payload, err := getManifestPayloadHash(manifest)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("getting manifest payload hash: %w", err)
 	}
 
-	sigBundle := signature.NewBundle(signedPayload, sv.Cert, sv.Chain)
-	return sigBundle.ToMap(), nil
+	bundle, err := signature.Sign(ctx, sv, payload)
+	if err != nil {
+		return nil, fmt.Errorf("signing image payload: %w", err)
+	}
+
+	annotations, err := bundle.ToMap()
+	if err != nil {
+		return nil, fmt.Errorf("bundle to map convertation: %w", err)
+	}
+
+	return annotations, nil
 }
 
 func VerifyImageManifestSignature(ctx context.Context, rootCertRef string, manifest *v1.Manifest) error {
-	sigBundle, err := signature.NewBundleFromMap(manifest.Annotations)
+	bundle, err := signature.NewBundleFromMap(manifest.Annotations)
 	if err != nil {
 		return fmt.Errorf("signature bundle creation: %w", err)
 	}
 
-	if rootCertRef == "" {
-		return fmt.Errorf("root cert ref required")
-	}
-
-	if _, _, err = signver.VerifyChain(sigBundle.Cert.Base64String(), sigBundle.Chain.Base64String(), rootCertRef); err != nil {
-		return fmt.Errorf("cert verification: %w", err)
-	}
-
-	verifier, err := signver.NewVerifierFromCert(ctx, sigBundle.Cert.Base64String())
+	payload, err := getManifestPayloadHash(manifest)
 	if err != nil {
-		return fmt.Errorf("verifier creation: %w", err)
+		return fmt.Errorf("getting manifest payload hash: %w", err)
 	}
 
-	signatureReader := bytes.NewReader(sigBundle.Signature)
-	messageReader := strings.NewReader(getManifestPayloadHash(manifest))
-
-	if err = verifier.VerifySignature(signatureReader, messageReader); err != nil {
-		return fmt.Errorf("image signature verification: %w", err)
+	if err = signature.VerifyBundle(ctx, bundle, payload, rootCertRef); err != nil {
+		return fmt.Errorf("bundle verification: %w", err)
 	}
 
 	return nil
 }
 
-func getManifestPayloadHash(manifest *v1.Manifest) string {
+func getManifestPayloadHash(manifest *v1.Manifest) (string, error) {
 	var hashes []string
 	hashes = append(hashes, strconv.FormatInt(manifest.SchemaVersion, 10), string(manifest.MediaType))
 
@@ -66,8 +63,12 @@ func getManifestPayloadHash(manifest *v1.Manifest) string {
 		hashes = append(hashes, layer.Digest.String(), string(layer.MediaType), strconv.FormatInt(layer.Size, 10))
 	}
 
-	// filter out keys of signature bundle
-	annotations := lo.OmitByKeys(manifest.Annotations, lo.Keys(signature.NewEmptyBundle().ToMap()))
+	// Filter out keys of signature bundle
+	bundleAnnotations, err := signature.NewEmptyBundle().ToMap()
+	if err != nil {
+		return "", fmt.Errorf("empty bundle to map convertation: %w", err)
+	}
+	annotations := lo.OmitByKeys(manifest.Annotations, lo.Keys(bundleAnnotations))
 
 	keys := lo.Keys(annotations)
 	slices.Sort(keys)
@@ -76,5 +77,5 @@ func getManifestPayloadHash(manifest *v1.Manifest) string {
 		hashes = append(hashes, k, annotations[k])
 	}
 
-	return fmt.Sprintf("%x", sha256.Sum256([]byte(strings.Join(hashes, ""))))
+	return fmt.Sprintf("%x", sha256.Sum256([]byte(strings.Join(hashes, "")))), nil
 }
