@@ -13,9 +13,9 @@ import (
 )
 
 var (
-	ErrNoSignatureAnnotation = errors.New("no signature")
-	ErrNoCertAnnotation      = errors.New("no cert")
-	ErrCertRequired          = errors.New("cert required")
+	ErrNoSignature  = errors.New("no signature")
+	ErrNoCert       = errors.New("no cert")
+	ErrCertRequired = errors.New("cert required")
 )
 
 type Base64Bytes []byte
@@ -79,10 +79,10 @@ func NewBundleFromMap(m map[string]string) (Bundle, error) {
 	}
 
 	if b.Signature == nil {
-		return Bundle{}, ErrNoSignatureAnnotation
+		return Bundle{}, ErrNoSignature
 	}
 	if b.Cert == nil {
-		return Bundle{}, ErrNoCertAnnotation
+		return Bundle{}, ErrNoCert
 	}
 
 	return b, nil

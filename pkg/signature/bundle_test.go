@@ -59,7 +59,7 @@ var _ = Describe("bundle", func() {
 			"should fail with 'no signature annotation' if no specified anno",
 			map[string]string{},
 			signature.Bundle{},
-			signature.ErrNoSignatureAnnotation,
+			signature.ErrNoSignature,
 		),
 		Entry(
 			"should fail with 'no cert annotation' if no specified anno",
@@ -67,7 +67,7 @@ var _ = Describe("bundle", func() {
 				"io.deckhouse.delivery-kit.signature": "",
 			},
 			signature.Bundle{},
-			signature.ErrNoCertAnnotation,
+			signature.ErrNoCert,
 		),
 		Entry(
 			"should return bundle otherwise",
