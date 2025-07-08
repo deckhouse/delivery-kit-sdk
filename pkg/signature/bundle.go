@@ -15,6 +15,7 @@ import (
 var (
 	ErrNoSignatureAnnotation = errors.New("no signature annotation")
 	ErrNoCertAnnotation      = errors.New("no cert annotation")
+	ErrCertRequired          = errors.New("cert required")
 )
 
 type Base64Bytes []byte
@@ -99,6 +100,10 @@ func Sign(_ context.Context, sv *signver.SignerVerifier, payload string) (Bundle
 	signedPayload, err := sv.SignMessage(strings.NewReader(payload))
 	if err != nil {
 		return Bundle{}, fmt.Errorf("signing payload: %w", err)
+	}
+
+	if sv.Cert == nil {
+		return Bundle{}, ErrCertRequired
 	}
 
 	return Bundle{
