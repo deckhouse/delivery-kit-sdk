@@ -65,9 +65,7 @@ import "C"
 
 import (
 	"context"
-	"crypto/rsa"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"unsafe"
 
@@ -77,7 +75,7 @@ import (
 
 //go:generate sh -c "cmake -S ../../../../c/lib/welf -B ../../../../c/lib/welf/build -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE:-Release} && cmake --build ../../../../c/lib/welf/build"
 
-func Sign(ctx context.Context, path string, signerVerifier *signver.SignerVerifier, rootCertRef string) error {
+func Sign(ctx context.Context, path string, signerVerifier *signver.SignerVerifier) error {
 	cPath := C.CString(path)
 	defer C.free(unsafe.Pointer(cPath))
 
@@ -96,31 +94,31 @@ func Sign(ctx context.Context, path string, signerVerifier *signver.SignerVerifi
 	}
 	defer C.free(unsafe.Pointer(cNewHashBuf))
 
-	var cOldSignatureBundleBuf *C.uchar
-	var cOldSignatureBundleSize C.size_t
-	if C.welf_get_elf_signature(cElf, &cOldSignatureBundleBuf, &cOldSignatureBundleSize) < 0 {
-		return fmt.Errorf("get elf signature failed: %s", C.GoString(C.welf_errmsg()))
-	}
+	// var cOldSignatureBundleBuf *C.uchar
+	// var cOldSignatureBundleSize C.size_t
+	// if C.welf_get_elf_signature(cElf, &cOldSignatureBundleBuf, &cOldSignatureBundleSize) < 0 {
+	// 	return fmt.Errorf("get elf signature failed: %s", C.GoString(C.welf_errmsg()))
+	// }
 
 	hashBytes := C.GoBytes(unsafe.Pointer(cNewHashBuf), C.int(cNewHashSize))
 
-	if cOldSignatureBundleBuf != nil {
-		defer C.free(unsafe.Pointer(cOldSignatureBundleBuf))
-		oldSignatureBundleBytes := C.GoBytes(unsafe.Pointer(cOldSignatureBundleBuf), C.int(cOldSignatureBundleSize))
-
-		var oldSignatureBundle *signature.Bundle
-		if err := json.Unmarshal(oldSignatureBundleBytes, &oldSignatureBundle); err != nil {
-			return fmt.Errorf("unmarshal old signature bundle: %w", err)
-		}
-
-		if err := signature.VerifyBundle(ctx, *oldSignatureBundle, string(hashBytes), rootCertRef); err != nil {
-			if !errors.Is(err, rsa.ErrVerification) {
-				return fmt.Errorf("verify old signature bundle, but with a new hash: %w", err)
-			}
-		} else {
-			return nil
-		}
-	}
+	// if cOldSignatureBundleBuf != nil {
+	// 	defer C.free(unsafe.Pointer(cOldSignatureBundleBuf))
+	// 	oldSignatureBundleBytes := C.GoBytes(unsafe.Pointer(cOldSignatureBundleBuf), C.int(cOldSignatureBundleSize))
+	//
+	// 	var oldSignatureBundle *signature.Bundle
+	// 	if err := json.Unmarshal(oldSignatureBundleBytes, &oldSignatureBundle); err != nil {
+	// 		return fmt.Errorf("unmarshal old signature bundle: %w", err)
+	// 	}
+	//
+	// 	if err := signature.VerifyBundle(ctx, *oldSignatureBundle, string(hashBytes), rootCertRef); err != nil {
+	// 		if !errors.Is(err, rsa.ErrVerification) {
+	// 			return fmt.Errorf("verify old signature bundle, but with a new hash: %w", err)
+	// 		}
+	// 	} else {
+	// 		return nil
+	// 	}
+	// }
 
 	newSignatureBundle, err := signature.Sign(ctx, signerVerifier, string(hashBytes))
 	if err != nil {
@@ -179,7 +177,7 @@ func Verify(ctx context.Context, path, rootCertRef string) error {
 		return fmt.Errorf("unmarshal signature bundle: %w", err)
 	}
 
-	// FIXME(ilya-lesikov):
+	// TODO:
 	// if signatureBundle.ApiVersion != SignatureDataApiVersionV1 {
 	//     return fmt.Errorf("unsupported signature data API version: %s", signatureBundle.ApiVersion)
 	// }
