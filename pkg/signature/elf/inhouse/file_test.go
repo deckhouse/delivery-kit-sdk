@@ -138,7 +138,7 @@ var _ = Describe("signature/elf/custom", func() {
 })
 
 func newSignerVerifier(ctx SpecContext) *signver.SignerVerifier {
-	signerVerifier, err := signver.NewSignerVerifier(ctx, cert_utils.SignerCertBase64, cert_utils.SignerChainBase64, "", signver.KeyOpts{
+	signerVerifier, err := signver.NewSignerVerifier(ctx, cert_utils.SignerCertBase64, cert_utils.SignerChainBase64, signver.KeyOpts{
 		KeyRef: cert_utils.SignerKeyBase64,
 	})
 	Expect(err).To(Succeed())

@@ -153,15 +153,15 @@ func GenerateLeafCert(subject, oidcIssuer string, parentTemplate *x509.Certifica
 }
 
 type GenerateCertificatesResult struct {
-	PrivKey    *ecdsa.PrivateKey
-	LeafCert   *x509.Certificate
-	ChainCerts []*x509.Certificate
-	RootCert   *x509.Certificate
+	PrivKey           *ecdsa.PrivateKey
+	LeafCert          *x509.Certificate
+	IntermediateCerts []*x509.Certificate
+	RootCert          *x509.Certificate
 
-	PrivRef  string
-	LeafRef  string
-	ChainRef string
-	RootRef  string
+	PrivRef          string
+	LeafRef          string
+	IntermediatesRef string
+	RootRef          string
 }
 
 type GenerateCertificatesOptions struct {
@@ -208,13 +208,13 @@ func GenerateCertificatesWithOptions(options GenerateCertificatesOptions) Genera
 
 	privPem := pem.EncodeToMemory(&pem.Block{Bytes: encBytes, Type: signver.SigstorePrivateKeyPemType})
 	leafPem := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: leafCert.Raw})
-	chainPem := make([]byte, 0)
+	intermediatesPem := make([]byte, 0)
 	rootPem := make([]byte, 0)
 
 	result := GenerateCertificatesResult{
-		PrivKey:    privKey,
-		LeafCert:   leafCert,
-		ChainCerts: make([]*x509.Certificate, 0),
+		PrivKey:           privKey,
+		LeafCert:          leafCert,
+		IntermediateCerts: make([]*x509.Certificate, 0),
 	}
 
 	switch {
@@ -224,27 +224,27 @@ func GenerateCertificatesWithOptions(options GenerateCertificatesOptions) Genera
 	case options.NoIntermediates && !options.ExcludeRootFromIntermediates:
 		Fail(fmt.Sprintf("%+v option combination is not allowed", options))
 	case !options.NoIntermediates && options.ExcludeRootFromIntermediates:
-		chainPem = pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: subCert.Raw})
-		result.ChainCerts = append(result.ChainCerts, subCert)
+		intermediatesPem = pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: subCert.Raw})
+		result.IntermediateCerts = append(result.IntermediateCerts, subCert)
 		rootPem = pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: rootCert.Raw})
 		result.RootCert = rootCert
 	case !options.NoIntermediates && !options.ExcludeRootFromIntermediates:
-		chainPem = append(chainPem, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: subCert.Raw})...)
-		chainPem = append(chainPem, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: rootCert.Raw})...)
-		result.ChainCerts = append(result.ChainCerts, subCert)
-		result.ChainCerts = append(result.ChainCerts, rootCert)
+		intermediatesPem = append(intermediatesPem, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: subCert.Raw})...)
+		intermediatesPem = append(intermediatesPem, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: rootCert.Raw})...)
+		result.IntermediateCerts = append(result.IntermediateCerts, subCert)
+		result.IntermediateCerts = append(result.IntermediateCerts, rootCert)
 	}
 
 	if options.UseBase64Encoding {
 		result.PrivRef = base64.StdEncoding.EncodeToString(privPem)
 		result.LeafRef = base64.StdEncoding.EncodeToString(leafPem)
-		result.ChainRef = base64.StdEncoding.EncodeToString(chainPem)
+		result.IntermediatesRef = base64.StdEncoding.EncodeToString(intermediatesPem)
 		result.RootRef = base64.StdEncoding.EncodeToString(rootPem)
 	} else {
 		Expect(options.TmpDir).NotTo(BeEmpty())
 		result.PrivRef = makeFile(options.TmpDir, "sigstore_test_*.key", privPem)
 		result.LeafRef = makeFile(options.TmpDir, "sigstore.crt", leafPem)
-		result.ChainRef = makeFile(options.TmpDir, "sigstore_chain.crt", chainPem)
+		result.IntermediatesRef = makeFile(options.TmpDir, "sigstore_chain.crt", intermediatesPem)
 		result.RootRef = makeFile(options.TmpDir, "sigstore_root.crt", rootPem)
 	}
 
