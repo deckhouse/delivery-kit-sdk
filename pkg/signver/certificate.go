@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto"
 	"crypto/x509"
+	"encoding/base64"
 	"encoding/pem"
 	"errors"
 	"fmt"
@@ -46,12 +47,38 @@ func loadCertFromRef(certRef string) (*x509.Certificate, error) {
 	return cert, nil
 }
 
+// ConcatChain takes intermediateRef... or rootRef and concatenates them into a chain.
+func ConcatChain(intermediateOrRootRef ...string) ([]*x509.Certificate, string, error) {
+	var builtChain []*x509.Certificate
+	var builtPem []byte
+
+	for _, ref := range intermediateOrRootRef {
+		if ref == "" {
+			continue
+		}
+		// Accept only PEM encoded certificate chain
+		chainPem, err := blob.LoadBase64OrFile(ref)
+		if err != nil {
+			return nil, "", fmt.Errorf("reading certificate chain from reference: %w", err)
+		}
+		builtPem = append(builtPem, chainPem...)
+
+		chainCerts, err := cryptoutils.LoadCertificatesFromPEM(bytes.NewReader(chainPem))
+		if err != nil {
+			return nil, "", fmt.Errorf("loading certificate chain: %w", err)
+		}
+
+		builtChain = append(builtChain, chainCerts...)
+	}
+
+	return builtChain, base64.StdEncoding.EncodeToString(builtPem), nil
+}
+
 // VerifyChain verifies certificate chain.
-// rootRef argument could be empty string, file path or base64 encoded string.
-// if rootRef is empty string, verification assumes that rootCert is last certificate in the chain.
-// if rootRef is noy empty string (file path or base64 string), verification uses that certificate as rootCert.
-func VerifyChain(certRef, chainRef, rootRef string) ([]*x509.Certificate, []*x509.Certificate, error) {
-	roots, intermediates, err := loadRootsAndIntermediatesFromRef(chainRef, rootRef)
+// chainRef must contain at least one certificate (root).
+// If chainRef contains more than one certificate then the last one considered as root certificate.
+func VerifyChain(certRef, chainRef string) ([]*x509.Certificate, []*x509.Certificate, error) {
+	roots, intermediates, err := loadRootsAndIntermediatesFromRef(chainRef)
 	if err != nil {
 		return nil, nil, fmt.Errorf("loading root and intermediate certificates: %w", err)
 	}
@@ -78,45 +105,29 @@ func VerifyChain(certRef, chainRef, rootRef string) ([]*x509.Certificate, []*x50
 	return roots, intermediates, nil
 }
 
-func loadRootsAndIntermediatesFromRef(chainRef, rootRef string) ([]*x509.Certificate, []*x509.Certificate, error) {
-	var rootCerts []*x509.Certificate
-	var intermediateCerts []*x509.Certificate
-
-	if chainRef != "" {
-		// Accept only PEM encoded certificate chain
-		certChainBytes, err := blob.LoadBase64OrFile(chainRef)
-		if err != nil {
-			return nil, nil, fmt.Errorf("reading certificate chain from reference: %w", err)
-		}
-		intermediateCerts, err = cryptoutils.LoadCertificatesFromPEM(bytes.NewReader(certChainBytes))
-		if err != nil {
-			return nil, nil, fmt.Errorf("loading certificate chain: %w", err)
-		}
+// loadRootsAndIntermediatesFromRef
+// chainRef must contain at least one certificate (root certificate).
+// If chainRef contains more than one certificate then the last one considered as root certificate.
+func loadRootsAndIntermediatesFromRef(chainRef string) ([]*x509.Certificate, []*x509.Certificate, error) {
+	if chainRef == "" {
+		return nil, nil, fmt.Errorf("chainRef must not be empty")
 	}
 
-	if rootRef != "" {
-		// Accept only PEM encoded certificate chain
-		rootCertBytes, err := blob.LoadBase64OrFile(rootRef)
-		if err != nil {
-			return nil, nil, fmt.Errorf("reading root certificate from reference: %w", err)
-		}
-		rootCerts, err = cryptoutils.LoadCertificatesFromPEM(bytes.NewReader(rootCertBytes))
-		if err != nil {
-			return nil, nil, fmt.Errorf("loading root certificate: %w", err)
-		}
+	// Accept only PEM encoded certificate chain
+	certChainBytes, err := blob.LoadBase64OrFile(chainRef)
+	if err != nil {
+		return nil, nil, fmt.Errorf("reading certificate chain from reference: %w", err)
+	}
+	chainCerts, err := cryptoutils.LoadCertificatesFromPEM(bytes.NewReader(certChainBytes))
+	if err != nil {
+		return nil, nil, fmt.Errorf("loading certificate chain: %w", err)
 	}
 
-	if len(rootCerts) == 0 && len(intermediateCerts) == 0 {
-		return nil, nil, errors.New("root certificate must be present in certificate chain or by root certificate reference")
-	} else if len(rootCerts) > 1 {
-		return nil, nil, errors.New("one root certificate is allowed")
+	if len(chainCerts) == 0 {
+		return nil, nil, errors.New("no certificates in the chain")
 	}
 
-	if len(rootCerts) == 0 {
-		return intermediateCerts[len(intermediateCerts)-1:], intermediateCerts[:len(intermediateCerts)-1], nil
-	}
-
-	return rootCerts, intermediateCerts, nil
+	return chainCerts[len(chainCerts)-1:], chainCerts[:len(chainCerts)-1], nil
 }
 
 // trustedCert

@@ -42,7 +42,9 @@ var _ = Describe("certificate", func() {
 				UseBase64Encoding:            useBase64Encoding,
 			})
 
-			roots, intermediates, err := signver.VerifyChain(certGen.LeafRef, certGen.ChainRef, certGen.RootRef)
+			_, chainRef, err := signver.ConcatChain(certGen.IntermediatesRef, certGen.RootRef)
+			Expect(err).To(Succeed())
+			roots, intermediates, err := signver.VerifyChain(certGen.LeafRef, chainRef)
 			Expect(err).To(Succeed())
 
 			Expect(roots).To(HaveLen(1))
@@ -55,12 +57,12 @@ var _ = Describe("certificate", func() {
 				Fail("not allowed")
 			case !noIntermediates && ExcludeRootFromIntermediates:
 				Expect(intermediates).To(HaveLen(1))
-				Expect(intermediates[0]).To(Equal(certGen.ChainCerts[0]))
+				Expect(intermediates[0]).To(Equal(certGen.IntermediateCerts[0]))
 				Expect(roots[0]).To(Equal(certGen.RootCert))
 			case !noIntermediates && !ExcludeRootFromIntermediates:
 				Expect(intermediates).To(HaveLen(1))
-				Expect(intermediates[0]).To(Equal(certGen.ChainCerts[0]))
-				Expect(roots[0]).To(Equal(certGen.ChainCerts[1]))
+				Expect(intermediates[0]).To(Equal(certGen.IntermediateCerts[0]))
+				Expect(roots[0]).To(Equal(certGen.IntermediateCerts[1]))
 			}
 		},
 		// ----- certs are file paths -----

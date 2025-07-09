@@ -114,7 +114,12 @@ func Sign(_ context.Context, sv *signver.SignerVerifier, payload string) (Bundle
 }
 
 func VerifyBundle(ctx context.Context, bundle Bundle, payload, rootCertRef string) error {
-	if _, _, err := signver.VerifyChain(bundle.Cert.Base64String(), bundle.Chain.Base64String(), rootCertRef); err != nil {
+	_, chainRef, err := signver.ConcatChain(bundle.Chain.Base64String(), rootCertRef)
+	if err != nil {
+		return fmt.Errorf("building certificate chain: %w", err)
+	}
+
+	if _, _, err := signver.VerifyChain(bundle.Cert.Base64String(), chainRef); err != nil {
 		return fmt.Errorf("cert verification: %w", err)
 	}
 

@@ -22,7 +22,7 @@ var _ = Describe("Verifier", func() {
 				UseBase64Encoding: useBase64Encoding,
 			})
 
-			sv, err := signver.NewSignerVerifier(ctx, certGen.LeafRef, certGen.ChainRef, "", signver.KeyOpts{
+			sv, err := signver.NewSignerVerifier(ctx, certGen.LeafRef, certGen.IntermediatesRef, signver.KeyOpts{
 				PassFunc: passFunc,
 				KeyRef:   certGen.PrivRef,
 			})

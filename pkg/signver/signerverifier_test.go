@@ -24,7 +24,9 @@ var _ = Describe("SignerVerifier", func() {
 				UseBase64Encoding:            useBase64Encoding,
 			})
 
-			sv, err := signver.NewSignerVerifier(ctx, certGen.LeafRef, certGen.ChainRef, certGen.RootRef, signver.KeyOpts{
+			_, chainRef, err := signver.ConcatChain(certGen.IntermediatesRef, certGen.RootRef)
+			Expect(err).To(Succeed())
+			sv, err := signver.NewSignerVerifier(ctx, certGen.LeafRef, chainRef, signver.KeyOpts{
 				PassFunc: passFunc,
 				KeyRef:   certGen.PrivRef,
 			})
