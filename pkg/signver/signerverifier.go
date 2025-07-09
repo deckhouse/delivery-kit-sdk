@@ -30,7 +30,7 @@ type SignerVerifier struct {
 //
 // certRef could be a base64 or a file path
 // certChainRef could be a base64 or a file path
-func NewSignerVerifier(ctx context.Context, certRef, certChainRef string, ko KeyOpts) (*SignerVerifier, error) {
+func NewSignerVerifier(ctx context.Context, certRef, certChainRef, rootCertRef string, ko KeyOpts) (*SignerVerifier, error) {
 	if ko.KeyRef == "" {
 		return nil, errors.New("ko.KeyRef must not be empty string")
 	}
@@ -73,7 +73,7 @@ func NewSignerVerifier(ctx context.Context, certRef, certChainRef string, ko Key
 	}
 
 	// Handle --cert-chain flag
-	if roots, intermediates, err := VerifyChain(certRef, certChainRef, ""); err != nil {
+	if roots, intermediates, err := VerifyChain(certRef, certChainRef, rootCertRef); err != nil {
 		return nil, err
 	} else {
 		certChainPemBytes, err := cryptoutils.MarshalCertificatesToPEM(append(intermediates, roots...))

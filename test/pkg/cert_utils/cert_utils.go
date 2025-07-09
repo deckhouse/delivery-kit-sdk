@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/deckhouse/delivery-kit-sdk/pkg/signver"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/secure-systems-lab/go-securesystemslib/encrypted"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
@@ -163,11 +164,11 @@ type GenerateCertificatesResult struct {
 }
 
 type GenerateCertificatesOptions struct {
-	PassFunc          cryptoutils.PassFunc
-	TmpDir            string
-	NoIntermediates   bool
-	NoRootInChain     bool
-	UseBase64Encoding bool
+	PassFunc                     cryptoutils.PassFunc
+	TmpDir                       string
+	NoIntermediates              bool
+	ExcludeRootFromIntermediates bool
+	UseBase64Encoding            bool
 }
 
 // GenerateCertificatesWithOptions
@@ -207,26 +208,30 @@ func GenerateCertificatesWithOptions(options GenerateCertificatesOptions) Genera
 	privPem := pem.EncodeToMemory(&pem.Block{Bytes: encBytes, Type: signver.SigstorePrivateKeyPemType})
 	leafPem := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: leafCert.Raw})
 	chainPem := make([]byte, 0)
-	rootPem := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: rootCert.Raw})
+	rootPem := make([]byte, 0)
 
 	result := GenerateCertificatesResult{
 		PrivKey:    privKey,
 		LeafCert:   leafCert,
 		ChainCerts: make([]*x509.Certificate, 0),
-		RootCert:   rootCert,
 	}
 
-	if !options.NoIntermediates {
-		result.ChainCerts = []*x509.Certificate{subCert}
+	switch {
+	case options.NoIntermediates && options.ExcludeRootFromIntermediates:
+		rootPem = pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: rootCert.Raw})
+		result.RootCert = rootCert
+	case options.NoIntermediates && !options.ExcludeRootFromIntermediates:
+		Fail(fmt.Sprintf("%+v option combination is not allowed", options))
+	case !options.NoIntermediates && options.ExcludeRootFromIntermediates:
 		chainPem = pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: subCert.Raw})
-
-		if !options.NoRootInChain {
-			result.ChainCerts = append(result.ChainCerts, result.RootCert)
-			chainPem = append(chainPem, rootPem...)
-
-			rootPem = make([]byte, 0)
-			result.RootCert = nil
-		}
+		result.ChainCerts = append(result.ChainCerts, subCert)
+		rootPem = pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: rootCert.Raw})
+		result.RootCert = rootCert
+	case !options.NoIntermediates && !options.ExcludeRootFromIntermediates:
+		chainPem = append(chainPem, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: subCert.Raw})...)
+		chainPem = append(chainPem, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: rootCert.Raw})...)
+		result.ChainCerts = append(result.ChainCerts, subCert)
+		result.ChainCerts = append(result.ChainCerts, rootCert)
 	}
 
 	if options.UseBase64Encoding {

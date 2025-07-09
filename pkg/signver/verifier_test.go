@@ -15,17 +15,15 @@ var _ = Describe("Verifier", func() {
 		func(ctx SpecContext, useBase64Encoding bool) {
 			passFunc := cryptoutils.SkipPassword
 
-			result := cert_utils.GenerateCertificatesWithOptions(cert_utils.GenerateCertificatesOptions{
+			certGen := cert_utils.GenerateCertificatesWithOptions(cert_utils.GenerateCertificatesOptions{
 				PassFunc:          passFunc,
 				TmpDir:            GinkgoT().TempDir(),
-				NoIntermediates:   false,
-				NoRootInChain:     false,
 				UseBase64Encoding: useBase64Encoding,
 			})
 
-			sv, err := signver.NewSignerVerifier(ctx, result.LeafRef, result.ChainRef, signver.KeyOpts{
+			sv, err := signver.NewSignerVerifier(ctx, certGen.LeafRef, certGen.ChainRef, "", signver.KeyOpts{
 				PassFunc: passFunc,
-				KeyRef:   result.PrivRef,
+				KeyRef:   certGen.PrivRef,
 			})
 			Expect(err).To(Succeed())
 
@@ -34,7 +32,7 @@ var _ = Describe("Verifier", func() {
 			sig, err := sv.SignMessage(bytes.NewReader(message))
 			Expect(err).To(Succeed())
 
-			verifier, err := signver.NewVerifierFromCert(ctx, result.LeafRef)
+			verifier, err := signver.NewVerifierFromCert(ctx, certGen.LeafRef)
 			Expect(err).To(Succeed())
 
 			err = verifier.VerifySignature(bytes.NewReader(sig), bytes.NewReader(message))
