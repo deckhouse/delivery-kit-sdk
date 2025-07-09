@@ -11,17 +11,15 @@ import (
 var _ = Describe("certificate", func() {
 	DescribeTable("VerifyCert()",
 		func(useBase64Encoding bool) {
-			result := cert_utils.GenerateCertificatesWithOptions(cert_utils.GenerateCertificatesOptions{
+			certGen := cert_utils.GenerateCertificatesWithOptions(cert_utils.GenerateCertificatesOptions{
 				PassFunc:          cryptoutils.SkipPassword,
 				TmpDir:            GinkgoT().TempDir(),
-				NoIntermediates:   false,
-				NoRootInChain:     false,
 				UseBase64Encoding: useBase64Encoding,
 			})
 
-			leafCert, err := signver.VerifyCert(result.PrivKey.Public(), result.LeafRef)
+			leafCert, err := signver.VerifyCert(certGen.PrivKey.Public(), certGen.LeafRef)
 			Expect(err).To(Succeed())
-			Expect(leafCert).To(Equal(result.LeafCert))
+			Expect(leafCert).To(Equal(certGen.LeafCert))
 		},
 		Entry(
 			"with cert as file path",
@@ -34,49 +32,71 @@ var _ = Describe("certificate", func() {
 	)
 
 	DescribeTable("VerifyChain()",
-		func(useBase64Encoding, noRootInChain bool) {
-			result := cert_utils.GenerateCertificatesWithOptions(cert_utils.GenerateCertificatesOptions{
-				PassFunc:          cryptoutils.SkipPassword,
-				TmpDir:            GinkgoT().TempDir(),
-				NoIntermediates:   false,
-				NoRootInChain:     noRootInChain,
-				UseBase64Encoding: useBase64Encoding,
+		func(noIntermediates, ExcludeRootFromIntermediates, useBase64Encoding bool) {
+			certGen := cert_utils.GenerateCertificatesWithOptions(cert_utils.GenerateCertificatesOptions{
+				PassFunc:                     cryptoutils.SkipPassword,
+				TmpDir:                       GinkgoT().TempDir(),
+				NoIntermediates:              noIntermediates,
+				ExcludeRootFromIntermediates: ExcludeRootFromIntermediates,
+				UseBase64Encoding:            useBase64Encoding,
 			})
 
-			roots, intermediates, err := signver.VerifyChain(result.LeafRef, result.ChainRef, result.RootRef)
+			roots, intermediates, err := signver.VerifyChain(certGen.LeafRef, certGen.ChainRef, certGen.RootRef)
 			Expect(err).To(Succeed())
 
-			if !noRootInChain {
+			Expect(roots).To(HaveLen(1))
+
+			switch {
+			case noIntermediates && ExcludeRootFromIntermediates:
+				Expect(intermediates).To(HaveLen(0))
+				Expect(roots[0]).To(Equal(certGen.RootCert))
+			case noIntermediates && !ExcludeRootFromIntermediates:
+				Fail("not allowed")
+			case !noIntermediates && ExcludeRootFromIntermediates:
 				Expect(intermediates).To(HaveLen(1))
-				Expect(roots).To(HaveLen(1))
-				Expect(result.ChainCerts).To(HaveLen(2))
-				Expect(intermediates[0]).To(Equal(result.ChainCerts[0]))
-				Expect(roots[0]).To(Equal(result.ChainCerts[1]))
-			} else {
+				Expect(intermediates[0]).To(Equal(certGen.ChainCerts[0]))
+				Expect(roots[0]).To(Equal(certGen.RootCert))
+			case !noIntermediates && !ExcludeRootFromIntermediates:
 				Expect(intermediates).To(HaveLen(1))
-				Expect(roots).To(HaveLen(1))
-				Expect(result.ChainCerts).To(HaveLen(1))
-				Expect(intermediates[0]).To(Equal(result.ChainCerts[0]))
-				Expect(roots[0]).To(Equal(result.RootCert))
+				Expect(intermediates[0]).To(Equal(certGen.ChainCerts[0]))
+				Expect(roots[0]).To(Equal(certGen.ChainCerts[1]))
 			}
 		},
+		// ----- certs are file paths -----
 		Entry(
-			"with cert, chain and root as file paths AND root ca included into chain",
+			"with intermediates, root cert in chain, certs are file paths",
+			false,
 			false,
 			false,
 		),
 		Entry(
-			"with cert, chain and root as file paths AND standalone root ca",
+			"with intermediates, root cert not in chain, certs are file paths",
 			false,
-			true,
-		),
-		Entry(
-			"with cert, chain and root as base64 AND root ca included into chain",
 			true,
 			false,
 		),
 		Entry(
-			"with cert, chain and root as base64 AND standalone root ca",
+			"without intermediates, root cert not in chain, certs are file paths",
+			true,
+			true,
+			false,
+		),
+		// ----- certs are base64 stings -----
+		Entry(
+			"with intermediates, root cert in chain, certs are base64 stings",
+			false,
+			false,
+			true,
+		),
+		Entry(
+			"with intermediates, root cert not in chain, certs are base64 stings",
+			false,
+			true,
+			true,
+		),
+		Entry(
+			"without intermediates, root cert not in chain, certs are base64 stings",
+			true,
 			true,
 			true,
 		),

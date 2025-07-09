@@ -1,17 +1,24 @@
-package signver_test
+package image_test
 
 import (
 	"bytes"
+	_ "embed"
+	"maps"
 
+	"github.com/deckhouse/delivery-kit-sdk/pkg/signature/image"
 	"github.com/deckhouse/delivery-kit-sdk/pkg/signver"
 	"github.com/deckhouse/delivery-kit-sdk/test/pkg/cert_utils"
+	v1 "github.com/google/go-containerregistry/pkg/v1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 )
 
-var _ = Describe("SignerVerifier", func() {
-	DescribeTable("should sign and verify",
+//go:embed testdata/manifest_spec_sample.json
+var manifestSampleContent []byte
+
+var _ = Describe("manifest", func() {
+	DescribeTable("sign and verify manifest",
 		func(ctx SpecContext, noIntermediates, ExcludeRootFromIntermediates, useBase64Encoding bool) {
 			passFunc := cryptoutils.SkipPassword
 
@@ -24,17 +31,21 @@ var _ = Describe("SignerVerifier", func() {
 			})
 
 			sv, err := signver.NewSignerVerifier(ctx, certGen.LeafRef, certGen.ChainRef, certGen.RootRef, signver.KeyOpts{
-				PassFunc: passFunc,
 				KeyRef:   certGen.PrivRef,
+				PassFunc: passFunc,
 			})
 			Expect(err).To(Succeed())
 
-			message := []byte("sign me")
-
-			sig, err := sv.SignMessage(bytes.NewReader(message))
+			// Copied from https://github.com/opencontainers/image-spec/blob/v1.0.1/manifest.md#example-image-manifest
+			manifest, err := v1.ParseManifest(bytes.NewReader(manifestSampleContent))
 			Expect(err).To(Succeed())
 
-			err = sv.VerifySignature(bytes.NewReader(sig), bytes.NewReader(message))
+			sigAnnotations, err := image.GetSignatureAnnotationsForImageManifest(ctx, sv, manifest)
+			Expect(err).To(Succeed())
+
+			maps.Copy(manifest.Annotations, sigAnnotations)
+
+			err = image.VerifyImageManifestSignature(ctx, certGen.RootRef, manifest)
 			Expect(err).To(Succeed())
 		},
 		// ----- certs are file paths -----
