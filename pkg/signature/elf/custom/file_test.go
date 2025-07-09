@@ -29,7 +29,7 @@ var _ = Describe("signature/elf/custom", func() {
 			newElfFilePath, cleanupTmpFile := makeTempFileCopy(helloElfFile, "hello.*.elf")
 			defer cleanupTmpFile()
 
-			Expect(custom.Sign(ctx, newElfFilePath, signerVerifier)).To(Succeed())
+			Expect(custom.Sign(ctx, signerVerifier, newElfFilePath)).To(Succeed())
 
 			newElfBinary := readFile(newElfFilePath)
 			fixtureNewElfBinary := readFile(helloElfFileWithSignature)
@@ -50,7 +50,7 @@ var _ = Describe("signature/elf/custom", func() {
 			newElfFilePath, cleanupTmpFile := makeTempFileCopy(helloElfFileWithOutdatedSignature, "hello.*.elf")
 			defer cleanupTmpFile()
 
-			Expect(custom.Sign(ctx, newElfFilePath, signerVerifier)).To(Succeed())
+			Expect(custom.Sign(ctx, signerVerifier, newElfFilePath)).To(Succeed())
 
 			newElfBinary := readFile(newElfFilePath)
 			fixtureNewElfBinary := readFile(helloElfFileWithSignature)
@@ -89,7 +89,7 @@ var _ = Describe("signature/elf/custom", func() {
 			newTxtFilePath, cleanupTmpFile := makeTempFileCopy(helloTxtFile, "hello.*.txt")
 			defer cleanupTmpFile()
 
-			Expect(custom.Sign(ctx, newTxtFilePath, signerVerifier)).To(HaveOccurred())
+			Expect(custom.Sign(ctx, signerVerifier, newTxtFilePath)).To(HaveOccurred())
 
 			newTxtData := readFile(newTxtFilePath)
 			Expect(newTxtData).To(Equal(oldTxtData))
@@ -101,7 +101,7 @@ var _ = Describe("signature/elf/custom", func() {
 
 	DescribeTable("should verify signature",
 		func(ctx SpecContext) {
-			Expect(custom.Verify(ctx, helloElfFileWithSignature, cert_utils.RootCABase64)).To(Succeed())
+			Expect(custom.Verify(ctx, cert_utils.RootCABase64, helloElfFileWithSignature)).To(Succeed())
 		},
 		Entry(
 			"with x509 certs",
@@ -110,7 +110,7 @@ var _ = Describe("signature/elf/custom", func() {
 
 	DescribeTable("should fail to verify signature because wrong signature",
 		func(ctx SpecContext) {
-			Expect(custom.Verify(ctx, helloElfFileWithOutdatedSignature, cert_utils.RootCABase64)).To(HaveOccurred())
+			Expect(custom.Verify(ctx, cert_utils.RootCABase64, helloElfFileWithOutdatedSignature)).To(HaveOccurred())
 		},
 		Entry(
 			"with x509 certs",
@@ -119,7 +119,7 @@ var _ = Describe("signature/elf/custom", func() {
 
 	DescribeTable("should fail to verify signature because no signature",
 		func(ctx SpecContext) {
-			Expect(custom.Verify(ctx, helloElfFile, cert_utils.RootCABase64)).To(HaveOccurred())
+			Expect(custom.Verify(ctx, cert_utils.RootCABase64, helloElfFile)).To(HaveOccurred())
 		},
 		Entry(
 			"with x509 certs",
@@ -128,7 +128,7 @@ var _ = Describe("signature/elf/custom", func() {
 
 	DescribeTable("should fail to verify non-elf file",
 		func(ctx SpecContext) {
-			Expect(custom.Verify(ctx, helloTxtFile, cert_utils.RootCABase64)).To(HaveOccurred())
+			Expect(custom.Verify(ctx, cert_utils.RootCABase64, helloTxtFile)).To(HaveOccurred())
 		},
 		Entry(
 			"with x509 certs",
@@ -137,7 +137,7 @@ var _ = Describe("signature/elf/custom", func() {
 })
 
 func newSignerVerifier(ctx SpecContext) *signver.SignerVerifier {
-	signerVerifier, err := signver.NewSignerVerifier(ctx, cert_utils.SignerCertBase64, cert_utils.SignerChainBase64, signver.KeyOpts{
+	signerVerifier, err := signver.NewSignerVerifier(ctx, cert_utils.SignerCertBase64, cert_utils.SignerChainBase64, "", signver.KeyOpts{
 		KeyRef: cert_utils.SignerKeyBase64,
 	})
 	Expect(err).To(Succeed())
