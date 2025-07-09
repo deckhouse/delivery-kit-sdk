@@ -1,11 +1,11 @@
 //go:build !linux
 // +build !linux
 
-package custom
+package inhouse
 
 import (
 	"context"
-	
+
 	"github.com/deckhouse/delivery-kit-sdk/pkg/signver"
 )
 

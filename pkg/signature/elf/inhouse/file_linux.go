@@ -1,7 +1,7 @@
 //go:build linux
 // +build linux
 
-package custom
+package inhouse
 
 /*
 #cgo CFLAGS: -I../../../../c/lib/welf/include -I../../../../c/vendor/libelf/include

@@ -1,12 +1,12 @@
 //go:build linux
 // +build linux
 
-package custom_test
+package inhouse_test
 
 import (
 	"os"
 
-	"github.com/deckhouse/delivery-kit-sdk/pkg/signature/elf/custom"
+	"github.com/deckhouse/delivery-kit-sdk/pkg/signature/elf/inhouse"
 	"github.com/deckhouse/delivery-kit-sdk/pkg/signver"
 	"github.com/deckhouse/delivery-kit-sdk/test/pkg/cert_utils"
 	. "github.com/onsi/ginkgo/v2"
@@ -29,7 +29,7 @@ var _ = Describe("signature/elf/custom", func() {
 			newElfFilePath, cleanupTmpFile := makeTempFileCopy(helloElfFile, "hello.*.elf")
 			defer cleanupTmpFile()
 
-			Expect(custom.Sign(ctx, signerVerifier, newElfFilePath)).To(Succeed())
+			Expect(inhouse.Sign(ctx, signerVerifier, newElfFilePath)).To(Succeed())
 
 			newElfBinary := readFile(newElfFilePath)
 			fixtureNewElfBinary := readFile(helloElfFileWithSignature)
@@ -50,7 +50,7 @@ var _ = Describe("signature/elf/custom", func() {
 			newElfFilePath, cleanupTmpFile := makeTempFileCopy(helloElfFileWithOutdatedSignature, "hello.*.elf")
 			defer cleanupTmpFile()
 
-			Expect(custom.Sign(ctx, signerVerifier, newElfFilePath)).To(Succeed())
+			Expect(inhouse.Sign(ctx, signerVerifier, newElfFilePath)).To(Succeed())
 
 			newElfBinary := readFile(newElfFilePath)
 			fixtureNewElfBinary := readFile(helloElfFileWithSignature)
@@ -89,7 +89,7 @@ var _ = Describe("signature/elf/custom", func() {
 			newTxtFilePath, cleanupTmpFile := makeTempFileCopy(helloTxtFile, "hello.*.txt")
 			defer cleanupTmpFile()
 
-			Expect(custom.Sign(ctx, signerVerifier, newTxtFilePath)).To(HaveOccurred())
+			Expect(inhouse.Sign(ctx, signerVerifier, newTxtFilePath)).To(HaveOccurred())
 
 			newTxtData := readFile(newTxtFilePath)
 			Expect(newTxtData).To(Equal(oldTxtData))
@@ -101,7 +101,7 @@ var _ = Describe("signature/elf/custom", func() {
 
 	DescribeTable("should verify signature",
 		func(ctx SpecContext) {
-			Expect(custom.Verify(ctx, cert_utils.RootCABase64, helloElfFileWithSignature)).To(Succeed())
+			Expect(inhouse.Verify(ctx, cert_utils.RootCABase64, helloElfFileWithSignature)).To(Succeed())
 		},
 		Entry(
 			"with x509 certs",
@@ -110,7 +110,7 @@ var _ = Describe("signature/elf/custom", func() {
 
 	DescribeTable("should fail to verify signature because wrong signature",
 		func(ctx SpecContext) {
-			Expect(custom.Verify(ctx, cert_utils.RootCABase64, helloElfFileWithOutdatedSignature)).To(HaveOccurred())
+			Expect(inhouse.Verify(ctx, cert_utils.RootCABase64, helloElfFileWithOutdatedSignature)).To(HaveOccurred())
 		},
 		Entry(
 			"with x509 certs",
@@ -119,7 +119,7 @@ var _ = Describe("signature/elf/custom", func() {
 
 	DescribeTable("should fail to verify signature because no signature",
 		func(ctx SpecContext) {
-			Expect(custom.Verify(ctx, cert_utils.RootCABase64, helloElfFile)).To(HaveOccurred())
+			Expect(inhouse.Verify(ctx, cert_utils.RootCABase64, helloElfFile)).To(HaveOccurred())
 		},
 		Entry(
 			"with x509 certs",
@@ -128,7 +128,7 @@ var _ = Describe("signature/elf/custom", func() {
 
 	DescribeTable("should fail to verify non-elf file",
 		func(ctx SpecContext) {
-			Expect(custom.Verify(ctx, cert_utils.RootCABase64, helloTxtFile)).To(HaveOccurred())
+			Expect(inhouse.Verify(ctx, cert_utils.RootCABase64, helloTxtFile)).To(HaveOccurred())
 		},
 		Entry(
 			"with x509 certs",
