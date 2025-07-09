@@ -8,8 +8,17 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
+	"encoding/base64"
+	"encoding/pem"
+	"fmt"
 	"math/big"
+	"os"
 	"time"
+
+	"github.com/deckhouse/delivery-kit-sdk/pkg/signver"
+	. "github.com/onsi/gomega"
+	"github.com/secure-systems-lab/go-securesystemslib/encrypted"
+	"github.com/sigstore/sigstore/pkg/cryptoutils"
 )
 
 /*
@@ -139,4 +148,108 @@ func GenerateLeafCert(subject, oidcIssuer string, parentTemplate *x509.Certifica
 	}
 
 	return cert, priv, nil
+}
+
+type GenerateCertificatesResult struct {
+	PrivKey    *ecdsa.PrivateKey
+	LeafCert   *x509.Certificate
+	ChainCerts []*x509.Certificate
+	RootCert   *x509.Certificate
+
+	PrivRef  string
+	LeafRef  string
+	ChainRef string
+	RootRef  string
+}
+
+type GenerateCertificatesOptions struct {
+	PassFunc          cryptoutils.PassFunc
+	TmpDir            string
+	NoIntermediates   bool
+	NoRootInChain     bool
+	UseBase64Encoding bool
+}
+
+// GenerateCertificatesWithOptions
+// Inspired with https://github.com/sigstore/cosign/blob/c948138c19691142c1e506e712b7c1646e8ceb21/cmd/cosign/cli/sign/sign_test.go#L46
+func GenerateCertificatesWithOptions(options GenerateCertificatesOptions) GenerateCertificatesResult {
+	rootCert, rootKey, err := GenerateRootCa()
+	Expect(err).To(Succeed(), fmt.Sprintf("failed to generate root ca: %v", err))
+
+	var subCert *x509.Certificate
+	var subKey *ecdsa.PrivateKey
+	var leafCert *x509.Certificate
+	var privKey *ecdsa.PrivateKey
+
+	if options.NoIntermediates {
+		leafCert, privKey, err = GenerateLeafCert("subject", "oidc-issuer", rootCert, rootKey)
+		Expect(err).To(Succeed(), fmt.Sprintf("failed to generate leaf ca: %v", err))
+	} else {
+		subCert, subKey, err = GenerateSubordinateCa(rootCert, rootKey)
+		Expect(err).To(Succeed(), fmt.Sprintf("failed to generate subordinate ca: %v", err))
+
+		leafCert, privKey, err = GenerateLeafCert("subject", "oidc-issuer", subCert, subKey)
+		Expect(err).To(Succeed(), fmt.Sprintf("failed to generate leaf ca: %v", err))
+	}
+
+	x509Encoded, err := x509.MarshalPKCS8PrivateKey(privKey)
+	Expect(err).To(Succeed(), fmt.Sprintf("failed to encode private key: %v", err))
+
+	password := []byte{}
+	if options.PassFunc != nil {
+		password, err = options.PassFunc(true)
+		Expect(err).To(Succeed(), fmt.Sprintf("failed to read password: %v", err))
+	}
+
+	encBytes, err := encrypted.Encrypt(x509Encoded, password)
+	Expect(err).To(Succeed(), fmt.Sprintf("failed to encrypt key: %v", err))
+
+	privPem := pem.EncodeToMemory(&pem.Block{Bytes: encBytes, Type: signver.SigstorePrivateKeyPemType})
+	leafPem := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: leafCert.Raw})
+	chainPem := make([]byte, 0)
+	rootPem := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: rootCert.Raw})
+
+	result := GenerateCertificatesResult{
+		PrivKey:    privKey,
+		LeafCert:   leafCert,
+		ChainCerts: make([]*x509.Certificate, 0),
+		RootCert:   rootCert,
+	}
+
+	if !options.NoIntermediates {
+		result.ChainCerts = []*x509.Certificate{subCert}
+		chainPem = pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: subCert.Raw})
+
+		if !options.NoRootInChain {
+			result.ChainCerts = append(result.ChainCerts, result.RootCert)
+			chainPem = append(chainPem, rootPem...)
+
+			rootPem = make([]byte, 0)
+			result.RootCert = nil
+		}
+	}
+
+	if options.UseBase64Encoding {
+		result.PrivRef = base64.StdEncoding.EncodeToString(privPem)
+		result.LeafRef = base64.StdEncoding.EncodeToString(leafPem)
+		result.ChainRef = base64.StdEncoding.EncodeToString(chainPem)
+		result.RootRef = base64.StdEncoding.EncodeToString(rootPem)
+	} else {
+		Expect(options.TmpDir).NotTo(BeEmpty())
+		result.PrivRef = makeFile(options.TmpDir, "sigstore_test_*.key", privPem)
+		result.LeafRef = makeFile(options.TmpDir, "sigstore.crt", leafPem)
+		result.ChainRef = makeFile(options.TmpDir, "sigstore_chain.crt", chainPem)
+		result.RootRef = makeFile(options.TmpDir, "sigstore_root.crt", rootPem)
+	}
+
+	return result
+}
+
+func makeFile(tmpDir, filePattern string, fileData []byte) string {
+	file, err := os.CreateTemp(tmpDir, filePattern)
+	Expect(err).To(Succeed(), fmt.Sprintf("creating file with pattern %q: %v", filePattern, err))
+	defer file.Close()
+	_, err = file.Write(fileData)
+	Expect(err).To(Succeed(), fmt.Sprintf("writing fileData %q into file %q: %v", fileData, file.Name(), err))
+	return file.Name()
 }
