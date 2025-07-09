@@ -5,12 +5,14 @@ package custom
 
 import (
 	"context"
+	
+	"github.com/deckhouse/delivery-kit-sdk/pkg/signver"
 )
 
-func Sign(ctx context.Context, path string, signerVerifier *signver.SignerVerifier) error {
+func Sign(ctx context.Context, signerVerifier *signver.SignerVerifier, path string) error {
 	panic("not implemented on this platform")
 }
 
-func Verify(ctx context.Context, path, rootCert string) error {
+func Verify(ctx context.Context, rootCert, path string) error {
 	panic("not implemented on this platform")
 }

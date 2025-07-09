@@ -75,7 +75,7 @@ import (
 
 //go:generate sh -c "cmake -S ../../../../c/lib/welf -B ../../../../c/lib/welf/build -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE:-Release} && cmake --build ../../../../c/lib/welf/build"
 
-func Sign(ctx context.Context, path string, signerVerifier *signver.SignerVerifier) error {
+func Sign(ctx context.Context, signerVerifier *signver.SignerVerifier, path string) error {
 	cPath := C.CString(path)
 	defer C.free(unsafe.Pointer(cPath))
 
@@ -140,7 +140,7 @@ func Sign(ctx context.Context, path string, signerVerifier *signver.SignerVerifi
 	return nil
 }
 
-func Verify(ctx context.Context, path, rootCertRef string) error {
+func Verify(ctx context.Context, rootCertRef, path string) error {
 	cPath := C.CString(path)
 	defer C.free(unsafe.Pointer(cPath))
 
