@@ -5,13 +5,14 @@ import (
 	_ "embed"
 	"maps"
 
-	"github.com/deckhouse/delivery-kit-sdk/pkg/signature/image"
-	"github.com/deckhouse/delivery-kit-sdk/pkg/signver"
-	"github.com/deckhouse/delivery-kit-sdk/test/pkg/cert_utils"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
+
+	"github.com/deckhouse/delivery-kit-sdk/pkg/signature/image"
+	"github.com/deckhouse/delivery-kit-sdk/pkg/signver"
+	"github.com/deckhouse/delivery-kit-sdk/test/pkg/cert_utils"
 )
 
 //go:embed testdata/manifest_spec_sample.json

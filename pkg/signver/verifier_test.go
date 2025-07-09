@@ -3,11 +3,12 @@ package signver_test
 import (
 	"bytes"
 
-	"github.com/deckhouse/delivery-kit-sdk/pkg/signver"
-	"github.com/deckhouse/delivery-kit-sdk/test/pkg/cert_utils"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
+
+	"github.com/deckhouse/delivery-kit-sdk/pkg/signver"
+	"github.com/deckhouse/delivery-kit-sdk/test/pkg/cert_utils"
 )
 
 var _ = Describe("Verifier", func() {

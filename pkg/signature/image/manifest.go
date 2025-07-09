@@ -8,10 +8,11 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/deckhouse/delivery-kit-sdk/pkg/signature"
-	"github.com/deckhouse/delivery-kit-sdk/pkg/signver"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/samber/lo"
+
+	"github.com/deckhouse/delivery-kit-sdk/pkg/signature"
+	"github.com/deckhouse/delivery-kit-sdk/pkg/signver"
 )
 
 func GetSignatureAnnotationsForImageManifest(ctx context.Context, sv *signver.SignerVerifier, manifest *v1.Manifest) (map[string]string, error) {

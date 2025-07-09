@@ -6,11 +6,12 @@ package inhouse_test
 import (
 	"os"
 
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+
 	"github.com/deckhouse/delivery-kit-sdk/pkg/signature/elf/inhouse"
 	"github.com/deckhouse/delivery-kit-sdk/pkg/signver"
 	"github.com/deckhouse/delivery-kit-sdk/test/pkg/cert_utils"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 )
 
 const (

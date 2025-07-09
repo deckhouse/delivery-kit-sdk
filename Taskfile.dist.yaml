@@ -1,5 +1,8 @@
 version: "3"
 
+vars:
+  package: "github.com/deckhouse/delivery-kit-sdk"
+  
 tasks:
   lint:
     desc: 'Run all linters in parallel. Important vars: "paths".'
@@ -23,7 +26,7 @@ tasks:
   format:gci:
     desc: 'Format code with gci. Important vars: "paths".'
     cmds:
-      - gci write {{.paths | default "pkg/ test/ internal/"}}
+      - gci write -s Standard -s Default -s 'Prefix({{.package}})' {{.paths | default "pkg/ test/ internal/"}}
 
   format:gofumpt:
     desc: 'Format code with gofumpt. Important vars: "paths".'

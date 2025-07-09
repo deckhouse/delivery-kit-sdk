@@ -8,9 +8,10 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/deckhouse/delivery-kit-sdk/pkg/signver/blob"
 	"github.com/google/certificate-transparency-go/x509util"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
+
+	"github.com/deckhouse/delivery-kit-sdk/pkg/signver/blob"
 )
 
 func VerifyCert(pk crypto.PublicKey, certRef string) (*x509.Certificate, error) {

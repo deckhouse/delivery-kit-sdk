@@ -9,9 +9,10 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/deckhouse/delivery-kit-sdk/internal/exec"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
+
+	"github.com/deckhouse/delivery-kit-sdk/internal/exec"
 )
 
 const (

@@ -6,9 +6,10 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/deckhouse/delivery-kit-sdk/pkg/signature"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
+	"github.com/deckhouse/delivery-kit-sdk/pkg/signature"
 )
 
 var _ = Describe("bundle", func() {
