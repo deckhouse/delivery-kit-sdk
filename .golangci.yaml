@@ -8,7 +8,7 @@ linters-settings:
     sections:
       - standard
       - default
-      - prefix(github.com/deckhouse/)
+      - prefix(github.com/deckhouse/delivery-kit-sdk)
   gocritic:
     disabled-checks:
       - ifElseChain
