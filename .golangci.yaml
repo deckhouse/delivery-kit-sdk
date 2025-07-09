@@ -8,7 +8,7 @@ linters-settings:
     sections:
       - standard
       - default
-      - prefix(github.com/werf/)
+      - prefix(github.com/deckhouse/)
   gocritic:
     disabled-checks:
       - ifElseChain
