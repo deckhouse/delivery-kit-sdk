@@ -1,11 +1,10 @@
 package image_test
 
 import (
-	"bytes"
-	_ "embed"
-	"maps"
-
+	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/mutate"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
@@ -15,11 +14,8 @@ import (
 	"github.com/deckhouse/delivery-kit-sdk/test/pkg/cert_utils"
 )
 
-//go:embed testdata/manifest_spec_sample.json
-var manifestSampleContent []byte
-
 var _ = Describe("manifest", func() {
-	DescribeTable("sign and verify manifest",
+	DescribeTable("sign and verify image manifest",
 		func(ctx SpecContext, noIntermediates, ExcludeRootFromIntermediates, useBase64Encoding bool) {
 			passFunc := cryptoutils.SkipPassword
 
@@ -39,16 +35,30 @@ var _ = Describe("manifest", func() {
 			})
 			Expect(err).To(Succeed())
 
-			// Copied from https://github.com/opencontainers/image-spec/blob/v1.0.1/manifest.md#example-image-manifest
-			manifest, err := v1.ParseManifest(bytes.NewReader(manifestSampleContent))
+			imageRef := "nginx:latest"
+
+			ref, err := name.ParseReference(imageRef)
 			Expect(err).To(Succeed())
 
-			sigAnnotations, err := image.GetSignatureAnnotationsForImageManifest(ctx, sv, manifest)
+			desc, err := remote.Get(ref)
 			Expect(err).To(Succeed())
 
-			maps.Copy(manifest.Annotations, sigAnnotations)
+			imgOriginal, err := desc.Image()
+			Expect(err).To(Succeed())
 
-			err = image.VerifyImageManifestSignature(ctx, certGen.RootRef, manifest)
+			manifestOriginal, err := imgOriginal.Manifest()
+			Expect(err).To(Succeed())
+
+			sigAnnotations, err := image.GetSignatureAnnotationsForImageManifest(ctx, sv, manifestOriginal)
+			Expect(err).To(Succeed())
+
+			imgMutated := mutate.Annotations(imgOriginal, sigAnnotations).(v1.Image)
+			Expect(err).To(Succeed())
+
+			manifestMutated, err := imgMutated.Manifest()
+			Expect(err).To(Succeed())
+
+			err = image.VerifyImageManifestSignature(ctx, certGen.RootRef, manifestMutated)
 			Expect(err).To(Succeed())
 		},
 		// ----- certs are file paths -----
