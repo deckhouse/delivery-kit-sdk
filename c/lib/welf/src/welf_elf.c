@@ -15,8 +15,8 @@
 #include "welf_error.h"
 #include "welf_note.h"
 
-#define WERF_SIGNATURE_SECTION_NAME ".note.werf.signature"
-#define WERF_SIGNATURE_NOTE_NAME "werf.signature"
+#define WERF_SIGNATURE_SECTION_NAME ".note.delivery-kit.signature"
+#define WERF_SIGNATURE_NOTE_NAME "delivery-kit.signature"
 #define WERF_SIGNATURE_NOTE_TYPE 0x31415926
 
 int welf_compute_elf_hash(Elf *elf, char **result_buf, size_t *result_size) {
