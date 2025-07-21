@@ -52,7 +52,7 @@ int go_elf_init(const char* elf_path, FILE** out_file, Elf** out_elf) {
         go_set_errmsg("file %s is not an ELF file", elf_path);
         elf_end(elf);
         fclose(file);
-        return -1;
+        return -2;
     }
 
     *out_file = file;
@@ -66,6 +66,7 @@ import "C"
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"unsafe"
 
@@ -75,14 +76,15 @@ import (
 
 //go:generate sh -c "cmake -S ../../../../c/lib/welf -B ../../../../c/lib/welf/build -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE:-Release} && cmake --build ../../../../c/lib/welf/build"
 
+var ErrNotELF = errors.New("not an ELF file")
+
 func Sign(ctx context.Context, signerVerifier *signver.SignerVerifier, path string) error {
 	cPath := C.CString(path)
 	defer C.free(unsafe.Pointer(cPath))
 
-	var cFile *C.FILE
-	var cElf *C.Elf
-	if code := C.go_elf_init(cPath, &cFile, &cElf); code < 0 {
-		return fmt.Errorf("ELF init failed: %s", C.GoString(C.go_errmsg()))
+	cFile, cElf, err := initELF(cPath)
+	if err != nil {
+		return err
 	}
 	defer C.elf_end(cElf)
 	defer C.fclose(cFile)
@@ -144,10 +146,9 @@ func Verify(ctx context.Context, rootCertRef, path string) error {
 	cPath := C.CString(path)
 	defer C.free(unsafe.Pointer(cPath))
 
-	var cFile *C.FILE
-	var cElf *C.Elf
-	if code := C.go_elf_init(cPath, &cFile, &cElf); code < 0 {
-		return fmt.Errorf("ELF init failed: %s", C.GoString(C.go_errmsg()))
+	cFile, cElf, err := initELF(cPath)
+	if err != nil {
+		return err
 	}
 	defer C.elf_end(cElf)
 	defer C.fclose(cFile)
@@ -187,4 +188,17 @@ func Verify(ctx context.Context, rootCertRef, path string) error {
 	}
 
 	return nil
+}
+
+func initELF(cPath *C.char) (*C.FILE, *C.Elf, error) {
+	var cFile *C.FILE
+	var cElf *C.Elf
+	if code := C.go_elf_init(cPath, &cFile, &cElf); code < 0 {
+		if code == -2 {
+			return nil, nil, ErrNotELF
+		}
+		return nil, nil, fmt.Errorf("ELF init failed: %s", C.GoString(C.go_errmsg()))
+	}
+	
+	return cFile, cElf, nil
 }
