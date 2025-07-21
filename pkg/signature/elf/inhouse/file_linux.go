@@ -199,6 +199,6 @@ func initELF(cPath *C.char) (*C.FILE, *C.Elf, error) {
 		}
 		return nil, nil, fmt.Errorf("ELF init failed: %s", C.GoString(C.go_errmsg()))
 	}
-	
+
 	return cFile, cElf, nil
 }
