@@ -90,7 +90,7 @@ var _ = Describe("signature/elf/custom", func() {
 			newTxtFilePath, cleanupTmpFile := makeTempFileCopy(helloTxtFile, "hello.*.txt")
 			defer cleanupTmpFile()
 
-			Expect(inhouse.Sign(ctx, signerVerifier, newTxtFilePath)).To(HaveOccurred())
+			Expect(inhouse.Sign(ctx, signerVerifier, newTxtFilePath)).To(Equal(inhouse.ErrNotELF))
 
 			newTxtData := readFile(newTxtFilePath)
 			Expect(newTxtData).To(Equal(oldTxtData))
@@ -129,7 +129,7 @@ var _ = Describe("signature/elf/custom", func() {
 
 	DescribeTable("should fail to verify non-elf file",
 		func(ctx SpecContext) {
-			Expect(inhouse.Verify(ctx, cert_utils.RootCABase64, helloTxtFile)).To(HaveOccurred())
+			Expect(inhouse.Verify(ctx, cert_utils.RootCABase64, helloTxtFile)).To(Equal(inhouse.ErrNotELF))
 		},
 		Entry(
 			"with x509 certs",
