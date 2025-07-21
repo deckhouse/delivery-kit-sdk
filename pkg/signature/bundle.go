@@ -67,6 +67,26 @@ func (b Bundle) ToMap() (map[string]string, error) {
 	return result, nil
 }
 
+type rawBundle Bundle
+
+func (b *Bundle) UnmarshalJSON(data []byte) error {
+	var raw rawBundle
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+
+	*b = Bundle(raw)
+	
+	if b.Signature == nil {
+		return ErrNoSignature
+	}
+	if b.Cert == nil {
+		return ErrNoCert
+	}
+
+	return nil
+}
+
 func NewBundleFromMap(m map[string]string) (Bundle, error) {
 	data, err := json.Marshal(m)
 	if err != nil {
@@ -77,14 +97,7 @@ func NewBundleFromMap(m map[string]string) (Bundle, error) {
 	if err = json.Unmarshal(data, &b); err != nil {
 		return Bundle{}, fmt.Errorf("unmarshaling map to bundle: %w", err)
 	}
-
-	if b.Signature == nil {
-		return Bundle{}, ErrNoSignature
-	}
-	if b.Cert == nil {
-		return Bundle{}, ErrNoCert
-	}
-
+	
 	return b, nil
 }
 
