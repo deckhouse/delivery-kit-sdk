@@ -70,6 +70,25 @@ func CalculateDMVerityRootHash(ctx context.Context, rc io.Reader) (string, error
 	return rootHash, nil
 }
 
+// ComputeVerityRootHashForLayerFile returns the root hash for the hash tree of the `layerFile`.
+// Files passed mut be present on the filesystem.
+func ComputeVerityRootHashForLayerFile(ctx context.Context, layerFile, hashTreeFile string) (string, error) {
+	if _, err := os.Stat(layerFile); err != nil {
+		return "", fmt.Errorf("validate layer path: %w", err)
+	}
+
+	if _, err := os.Stat(hashTreeFile); err != nil {
+		return "", fmt.Errorf("validate hash tree path: %w", err)
+	}
+
+	rootHash, err := getVeritySetupFormatRootHash(ctx, layerFile, hashTreeFile)
+	if err != nil {
+		return "", fmt.Errorf("calculate root hash: %w", err)
+	}
+
+	return rootHash, nil
+}
+
 func createTempDir(prefix string) (string, error) {
 	tmpDir, err := os.MkdirTemp("", prefix)
 	if err != nil {
