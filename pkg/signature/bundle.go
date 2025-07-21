@@ -76,7 +76,7 @@ func (b *Bundle) UnmarshalJSON(data []byte) error {
 	}
 
 	*b = Bundle(raw)
-	
+
 	if b.Signature == nil {
 		return ErrNoSignature
 	}
@@ -97,7 +97,7 @@ func NewBundleFromMap(m map[string]string) (Bundle, error) {
 	if err = json.Unmarshal(data, &b); err != nil {
 		return Bundle{}, fmt.Errorf("unmarshaling map to bundle: %w", err)
 	}
-	
+
 	return b, nil
 }
 
