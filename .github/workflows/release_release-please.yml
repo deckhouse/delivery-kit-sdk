@@ -1,0 +1,23 @@
+name: release:release-please
+on:
+  push:
+    branches:
+      - "main"
+  repository_dispatch:
+    types: ["release:release-please"]
+  workflow_dispatch:
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  release-please:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Release
+        uses: googleapis/release-please-action@v4
+        with:
+          target-branch: ${{github.ref_name}}
+          release-type: go
+          token: ${{ secrets.GITHUB_TOKEN }}
