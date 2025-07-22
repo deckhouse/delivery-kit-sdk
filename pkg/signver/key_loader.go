@@ -15,6 +15,7 @@ import (
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"github.com/sigstore/sigstore/pkg/signature"
 	"github.com/sigstore/sigstore/pkg/signature/kms"
+	_ "github.com/sigstore/sigstore/pkg/signature/kms/hashivault"
 	"golang.org/x/crypto/ed25519"
 
 	"github.com/deckhouse/delivery-kit-sdk/pkg/signver/blob"
