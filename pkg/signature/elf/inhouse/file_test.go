@@ -9,6 +9,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/deckhouse/delivery-kit-sdk/pkg/signature/elf"
 	"github.com/deckhouse/delivery-kit-sdk/pkg/signature/elf/inhouse"
 	"github.com/deckhouse/delivery-kit-sdk/pkg/signver"
 	"github.com/deckhouse/delivery-kit-sdk/test/pkg/cert_utils"
@@ -90,7 +91,7 @@ var _ = Describe("signature/elf/custom", func() {
 			newTxtFilePath, cleanupTmpFile := makeTempFileCopy(helloTxtFile, "hello.*.txt")
 			defer cleanupTmpFile()
 
-			Expect(inhouse.Sign(ctx, signerVerifier, newTxtFilePath)).To(Equal(inhouse.ErrNotELF))
+			Expect(inhouse.Sign(ctx, signerVerifier, newTxtFilePath)).To(Equal(elf.ErrNotELF))
 
 			newTxtData := readFile(newTxtFilePath)
 			Expect(newTxtData).To(Equal(oldTxtData))
@@ -129,7 +130,7 @@ var _ = Describe("signature/elf/custom", func() {
 
 	DescribeTable("should fail to verify non-elf file",
 		func(ctx SpecContext) {
-			Expect(inhouse.Verify(ctx, cert_utils.RootCABase64, helloTxtFile)).To(Equal(inhouse.ErrNotELF))
+			Expect(inhouse.Verify(ctx, cert_utils.RootCABase64, helloTxtFile)).To(Equal(elf.ErrNotELF))
 		},
 		Entry(
 			"with x509 certs",

@@ -66,17 +66,15 @@ import "C"
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"unsafe"
 
 	"github.com/deckhouse/delivery-kit-sdk/pkg/signature"
+	"github.com/deckhouse/delivery-kit-sdk/pkg/signature/elf"
 	"github.com/deckhouse/delivery-kit-sdk/pkg/signver"
 )
 
 //go:generate sh -c "cmake -S ../../../../c/lib/welf -B ../../../../c/lib/welf/build -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE:-Release} && cmake --build ../../../../c/lib/welf/build"
-
-var ErrNotELF = errors.New("not an ELF file")
 
 func Sign(ctx context.Context, signerVerifier *signver.SignerVerifier, path string) error {
 	cPath := C.CString(path)
@@ -195,7 +193,7 @@ func initELF(cPath *C.char) (*C.FILE, *C.Elf, error) {
 	var cElf *C.Elf
 	if code := C.go_elf_init(cPath, &cFile, &cElf); code < 0 {
 		if code == -2 {
-			return nil, nil, ErrNotELF
+			return nil, nil, elf.ErrNotELF
 		}
 		return nil, nil, fmt.Errorf("ELF init failed: %s", C.GoString(C.go_errmsg()))
 	}
