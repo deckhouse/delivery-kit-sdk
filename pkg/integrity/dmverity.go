@@ -117,6 +117,10 @@ func validateMkfsVersion(ctx context.Context) error {
 	return nil
 }
 
+func CreateErofsImage(ctx context.Context, rc io.Reader, erofsPath, mkfsBuildTimestamp string) error {
+	return createErofsImage(ctx, rc, erofsPath, mkfsBuildTimestamp)
+}
+
 func createErofsImage(ctx context.Context, rc io.Reader, erofsPath, mkfsBuildTimestamp string) error {
 	if err := validateMkfsVersion(ctx); err != nil {
 		return err
@@ -130,6 +134,10 @@ func createErofsImage(ctx context.Context, rc io.Reader, erofsPath, mkfsBuildTim
 		return fmt.Errorf("mkfs.erofs: %w", err)
 	}
 	return nil
+}
+
+func CreateHashImageFile(ctx context.Context, erofsPath, hashPath string) error {
+	return createHashImageFile(ctx, erofsPath, hashPath)
 }
 
 func createHashImageFile(_ context.Context, erofsPath, hashPath string) error {
