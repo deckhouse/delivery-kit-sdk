@@ -99,14 +99,15 @@ func createTempDir(prefix string) (string, error) {
 
 func validateMkfsVersion(ctx context.Context) error {
 	versionOutput, err := runCommand(ctx, "mkfs.erofs", "--version")
+	var versionMatch string
 	if err != nil {
-		return fmt.Errorf("failed to get mkfs.erofs version: %v\n%s", err, versionOutput)
-	}
-
-	versionRegex := regexp.MustCompile(`\d+\.\d+\.\d+`)
-	versionMatch := versionRegex.FindString(versionOutput)
-	if versionMatch == "" {
-		return fmt.Errorf("unable to parse mkfs.erofs version from output: %s", versionOutput)
+		versionMatch = fmt.Sprintf("undefined (error: %v)", err)
+	} else {
+		versionRegex := regexp.MustCompile(`\d+\.\d+\.\d+`)
+		versionMatch = versionRegex.FindString(versionOutput)
+		if versionMatch == "" {
+			versionMatch = "undefined"
+		}
 	}
 
 	requiredVersion := "1.8.6"
