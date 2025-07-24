@@ -107,7 +107,7 @@ func validateMkfsVersion(ctx context.Context) error {
 		versionMatch = versionRegex.FindString(versionOutput)
 		if versionMatch == "" {
 			versionMatch = "undefined"
-		}	
+		}
 	}
 
 	requiredVersion := "1.8.6"
