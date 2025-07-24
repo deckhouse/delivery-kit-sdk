@@ -91,6 +91,7 @@ int welf_compute_elf_hash(Elf *elf, char **result_buf, size_t *result_size) {
         if (strcmp(section_name, WERF_SIGNATURE_SECTION_NAME) == 0) continue;
         if (strcmp(section_name, "signature") == 0) continue; // bsign
         if (strcmp(section_name, ".shstrtab") == 0) continue; // section names
+        if (section_header.sh_type == SHT_NOBITS) continue; // Ignore NOBITS sections
 
         GElf_Shdr section_header_for_hash = section_header;
         section_header_for_hash.sh_addr = 0;
