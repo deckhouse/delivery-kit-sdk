@@ -138,7 +138,17 @@ func createErofsImage(ctx context.Context, rc io.Reader, erofsPath, mkfsBuildTim
 }
 
 func CreateHashImageFile(ctx context.Context, erofsPath, hashPath string) error {
-	return createHashImageFile(ctx, erofsPath, hashPath)
+	err := createHashImageFile(ctx, erofsPath, hashPath)
+	if err != nil {
+		return fmt.Errorf("create image file: %w", err)
+	}
+
+	_, err = getVeritySetupFormatRootHash(ctx, erofsPath, hashPath)
+	if err != nil {
+		return fmt.Errorf("format image file: %w", err)
+	}
+
+	return nil
 }
 
 func createHashImageFile(_ context.Context, erofsPath, hashPath string) error {
