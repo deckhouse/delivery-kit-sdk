@@ -38,7 +38,8 @@ var _ = Describe("manifest", func() {
 			})
 			Expect(err).To(Succeed())
 
-			test(ctx, sv, certGen.RootRef)
+			imgOriginal, sigAnnotations := testSign(ctx, sv)
+			testVerify(ctx, imgOriginal, sigAnnotations, certGen.RootRef)
 		},
 		// ----- key_type=ECDSA_P256, certs are file paths -----
 		Entry(
@@ -131,7 +132,7 @@ var _ = Describe("manifest", func() {
 	)
 })
 
-func test(ctx context.Context, sv *signver.SignerVerifier, rootRef string) {
+func testSign(ctx context.Context, sv *signver.SignerVerifier) (v1.Image, map[string]string) {
 	imageRef := "nginx:latest"
 
 	ref, err := name.ParseReference(imageRef)
@@ -149,8 +150,11 @@ func test(ctx context.Context, sv *signver.SignerVerifier, rootRef string) {
 	sigAnnotations, err := image.GetSignatureAnnotationsForImageManifest(ctx, sv, manifestOriginal)
 	Expect(err).To(Succeed())
 
+	return imgOriginal, sigAnnotations
+}
+
+func testVerify(ctx context.Context, imgOriginal v1.Image, sigAnnotations map[string]string, rootRef string) {
 	imgMutated := mutate.Annotations(imgOriginal, sigAnnotations).(v1.Image)
-	Expect(err).To(Succeed())
 
 	manifestMutated, err := imgMutated.Manifest()
 	Expect(err).To(Succeed())
