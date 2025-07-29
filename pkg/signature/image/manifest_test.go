@@ -1,6 +1,9 @@
 package image_test
 
 import (
+	"bytes"
+	_ "embed"
+	"fmt"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
@@ -13,6 +16,9 @@ import (
 	"github.com/deckhouse/delivery-kit-sdk/pkg/signver"
 	"github.com/deckhouse/delivery-kit-sdk/test/pkg/cert_utils"
 )
+
+//go:embed testdata/manifest.json
+var manifestData []byte
 
 var _ = Describe("manifest", func() {
 	DescribeTable("sign and verify image manifest",
@@ -100,4 +106,57 @@ var _ = Describe("manifest", func() {
 			true,
 		),
 	)
+
+	FDescribe("manifest sign failing", func() {
+		var manifest *v1.Manifest
+		BeforeEach(func() {
+			var err error
+			manifest, err = v1.ParseManifest(bytes.NewReader(manifestData))
+			Expect(err).To(Succeed())
+		})
+		It("should work", func(ctx SpecContext) {
+			fmt.Printf("manifest: %+v\n", manifest)
+			// 1) commit sha dev-kit-sdk
+			// 2) go mod
+			err := image.VerifyImageManifestSignature(ctx, cert_utils.RootCABase64, manifest)
+			Expect(err).To(Succeed())
+
+			/*
+				Results:
+
+				      bundle verification: signature verification: crypto/rsa: verification error
+				      {
+				          msg: "bundle verification: signature verification: crypto/rsa: verification error",
+				          err: <*fmt.wrapError | 0xc0002b7000>{
+				              msg: "signature verification: crypto/rsa: verification error",
+				              err: <*errors.errorString | 0xc00003b700>{
+				                  s: "crypto/rsa: verification error",
+				              },
+				          },
+				      }
+
+			*/
+
+		})
+		/*
+			    "github.com/containerd/log"
+			    "github.com/deckhouse/delivery-kit-sdk/pkg/signature/image"
+			    "github.com/deckhouse/delivery-kit-sdk/test/pkg/cert_utils"
+			    v1 "github.com/google/go-containerregistry/pkg/v1"
+			    "github.com/opencontainers/go-digest"
+			    "github.com/opencontainers/image-spec/identity"
+			    "github.com/sirupsen/logrus"
+
+			    "github.com/containerd/containerd/v2/core/snapshots/storage"
+			)
+
+			func VerifySignature(ctx context.Context, manifest v1.Manifest) (bool, error) {
+			    err := image.VerifyImageManifestSignature(ctx, cert_utils.RootCABase64, &manifest)
+			    if err != nil {
+			        return false, fmt.Errorf("manifest signature verification failed: %w", err)
+			    }
+			    return true, nil
+			}
+		*/
+	})
 })
