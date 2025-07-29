@@ -142,7 +142,7 @@ func trustedCert(cert *x509.Certificate, roots, intermediates *x509.CertPool) ([
 		Roots:         roots,
 		Intermediates: intermediates,
 		KeyUsages: []x509.ExtKeyUsage{
-			x509.ExtKeyUsageAny,
+			x509.ExtKeyUsageCodeSigning,
 		},
 	})
 	if err != nil {
