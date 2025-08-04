@@ -127,7 +127,7 @@ func createErofsImage(ctx context.Context, rc io.Reader, erofsPath, mkfsBuildTim
 		return err
 	}
 
-	mkfs := exec.CommandContextCancellation(ctx, "mkfs.erofs", "-Uclear", "-T"+mkfsBuildTimestamp, "-x-1", "-Enoinline_data", "--tar=-", erofsPath)
+	mkfs := exec.CommandContextCancellation(ctx, "mkfs.erofs", "-Uclear", "-T"+mkfsBuildTimestamp, "-x-1", "-Enoinline_data", "--aufs", "--tar=-", erofsPath)
 	mkfs.Stderr = os.Stderr
 	mkfs.Stdin = rc
 
