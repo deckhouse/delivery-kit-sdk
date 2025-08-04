@@ -110,7 +110,7 @@ func validateMkfsVersion(ctx context.Context) error {
 		}
 	}
 
-	requiredVersion := "1.8.6"
+	requiredVersion := "1.8.10"
 	if versionMatch != requiredVersion {
 		return fmt.Errorf("mkfs.erofs version %s does not match the required version %s", versionMatch, requiredVersion)
 	}
