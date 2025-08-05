@@ -2,6 +2,7 @@ package vault_server
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os/exec"
 	"path/filepath"
@@ -92,5 +93,12 @@ func (vs *VaultServer) status(ctx context.Context) error {
 func runCommand(ctx context.Context, name string, args ...string) (string, error) {
 	cmd := exec.CommandContext(ctx, name, args...)
 	b, err := cmd.CombinedOutput()
-	return string(b), err
+	return string(b), errors.Join(context.Cause(ctx), buildError(b, err))
+}
+
+func buildError(b []byte, err error) error {
+	if err == nil {
+		return nil
+	}
+	return errors.New(string(b))
 }

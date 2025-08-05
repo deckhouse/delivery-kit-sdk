@@ -18,10 +18,11 @@ import (
 
 var _ = Describe("manifest", func() {
 	DescribeTable("sign and verify image manifest",
-		func(ctx SpecContext, noIntermediates, ExcludeRootFromIntermediates, useBase64Encoding bool) {
+		func(ctx SpecContext, keyType cert_utils.KeyType, noIntermediates, ExcludeRootFromIntermediates, useBase64Encoding bool) {
 			passFunc := cryptoutils.SkipPassword
 
 			certGen := cert_utils.GenerateCertificatesWithOptions(cert_utils.GenerateCertificatesOptions{
+				KeyType:                      keyType,
 				PassFunc:                     passFunc,
 				TmpDir:                       GinkgoT().TempDir(),
 				NoIntermediates:              noIntermediates,
@@ -39,40 +40,90 @@ var _ = Describe("manifest", func() {
 
 			test(ctx, sv, certGen.RootRef)
 		},
-		// ----- certs are file paths -----
+		// ----- key_type=ECDSA_P256, certs are file paths -----
 		Entry(
-			"with intermediates, root cert in chain, certs are file paths",
+			"key_type=ECDSA_P256, with intermediates, root cert in chain, certs are file paths",
+			cert_utils.KeyType_ECDSA_P256,
 			false,
 			false,
 			false,
 		),
 		Entry(
-			"with intermediates, root cert not in chain, certs are file paths",
+			"key_type=ECDSA_P256, with intermediates, root cert not in chain, certs are file paths",
+			cert_utils.KeyType_ECDSA_P256,
 			false,
 			true,
 			false,
 		),
 		Entry(
-			"without intermediates, root cert not in chain, certs are file paths",
+			"key_type=ECDSA_P256, without intermediates, root cert not in chain, certs are file paths",
+			cert_utils.KeyType_ECDSA_P256,
 			true,
 			true,
 			false,
 		),
-		// ----- certs are base64 stings -----
+		// ----- key_type=ED25519, certs are file paths -----
 		Entry(
-			"with intermediates, root cert in chain, certs are base64 stings",
+			"key_type=ED25519, with intermediates, root cert in chain, certs are file paths",
+			cert_utils.KeyType_ED25519,
+			false,
+			false,
+			false,
+		),
+		Entry(
+			"key_type=ED25519, with intermediates, root cert not in chain, certs are file paths",
+			cert_utils.KeyType_ED25519,
+			false,
+			true,
+			false,
+		),
+		Entry(
+			"key_type=ED25519, without intermediates, root cert not in chain, certs are file paths",
+			cert_utils.KeyType_ED25519,
+			true,
+			true,
+			false,
+		),
+		// ----- key_type=ECDSA_P256, certs are base64 stings -----
+		Entry(
+			"key_type=ECDSA_P256, with intermediates, root cert in chain, certs are base64 stings",
+			cert_utils.KeyType_ECDSA_P256,
 			false,
 			false,
 			true,
 		),
 		Entry(
-			"with intermediates, root cert not in chain, certs are base64 stings",
+			"key_type=ECDSA_P256, with intermediates, root cert not in chain, certs are base64 stings",
+			cert_utils.KeyType_ECDSA_P256,
 			false,
 			true,
 			true,
 		),
 		Entry(
-			"without intermediates, root cert not in chain, certs are base64 stings",
+			"key_type=ECDSA_P256, without intermediates, root cert not in chain, certs are base64 stings",
+			cert_utils.KeyType_ECDSA_P256,
+			true,
+			true,
+			true,
+		),
+		// ----- key_type=KeyType_ED25519, certs are base64 stings -----
+		Entry(
+			"key_type=ED25519, with intermediates, root cert in chain, certs are base64 stings",
+			cert_utils.KeyType_ED25519,
+			false,
+			false,
+			true,
+		),
+		Entry(
+			"key_type=ED25519, with intermediates, root cert not in chain, certs are base64 stings",
+			cert_utils.KeyType_ED25519,
+			false,
+			true,
+			true,
+		),
+		Entry(
+			"key_type=ED25519, without intermediates, root cert not in chain, certs are base64 stings",
+			cert_utils.KeyType_ED25519,
 			true,
 			true,
 			true,
