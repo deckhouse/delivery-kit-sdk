@@ -23,37 +23,12 @@ import (
 	"github.com/deckhouse/delivery-kit-sdk/pkg/signver"
 )
 
-/*
-To use:
-
-rootCert, rootKey, _ := GenerateRootCa()
-subCert, subKey, _ := GenerateSubordinateCa(rootCert, rootKey)
-leafCert, _, _ := GenerateLeafCert("subject", "oidc-issuer", subCert, subKey)
-
-roots := x509.NewCertPool()
-subs := x509.NewCertPool()
-roots.AddCert(rootCert)
-subs.AddCert(subCert)
-opts := x509.VerifyOptions{
-	Roots:         roots,
-	Intermediates: subs,
-	KeyUsages: []x509.ExtKeyUsage{
-		x509.ExtKeyUsageCodeSigning,
-	},
-}
-_, err := leafCert.Verify(opts)
-*/
-
 func createCertificate(template, parent *x509.Certificate, pub interface{}, priv crypto.Signer) (*x509.Certificate, error) {
 	certBytes, err := x509.CreateCertificate(rand.Reader, template, parent, pub, priv)
-	if err != nil {
-		return nil, err
-	}
+	Expect(err).To(Succeed())
 
 	cert, err := x509.ParseCertificate(certBytes)
-	if err != nil {
-		return nil, err
-	}
+	Expect(err).To(Succeed())
 	return cert, nil
 }
 
@@ -75,14 +50,10 @@ func GenerateRootCa() (*x509.Certificate, *ecdsa.PrivateKey, error) {
 	}
 
 	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	if err != nil {
-		return nil, nil, err
-	}
+	Expect(err).To(Succeed())
 
 	cert, err := createCertificate(rootTemplate, rootTemplate, &priv.PublicKey, priv)
-	if err != nil {
-		return nil, nil, err
-	}
+	Expect(err).To(Succeed())
 
 	return cert, priv, nil
 }
@@ -106,14 +77,10 @@ func GenerateSubordinateCa(rootTemplate *x509.Certificate, rootPriv crypto.Signe
 	}
 
 	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	if err != nil {
-		return nil, nil, err
-	}
+	Expect(err).To(Succeed())
 
 	cert, err := createCertificate(subTemplate, rootTemplate, &priv.PublicKey, rootPriv)
-	if err != nil {
-		return nil, nil, err
-	}
+	Expect(err).To(Succeed())
 
 	return cert, priv, nil
 }
@@ -140,14 +107,10 @@ func GenerateLeafCert(subject, oidcIssuer string, parentTemplate *x509.Certifica
 	}
 
 	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	if err != nil {
-		return nil, nil, err
-	}
+	Expect(err).To(Succeed())
 
 	cert, err := createCertificate(certTemplate, parentTemplate, &priv.PublicKey, parentPriv)
-	if err != nil {
-		return nil, nil, err
-	}
+	Expect(err).To(Succeed())
 
 	return cert, priv, nil
 }
@@ -197,7 +160,7 @@ func GenerateCertificatesWithOptions(options GenerateCertificatesOptions) Genera
 	x509Encoded, err := x509.MarshalPKCS8PrivateKey(privKey)
 	Expect(err).To(Succeed(), fmt.Sprintf("failed to encode private key: %v", err))
 
-	password := []byte{}
+	var password []byte
 	if options.PassFunc != nil {
 		password, err = options.PassFunc(true)
 		Expect(err).To(Succeed(), fmt.Sprintf("failed to read password: %v", err))
@@ -242,16 +205,16 @@ func GenerateCertificatesWithOptions(options GenerateCertificatesOptions) Genera
 		result.RootRef = base64.StdEncoding.EncodeToString(rootPem)
 	} else {
 		Expect(options.TmpDir).NotTo(BeEmpty())
-		result.PrivRef = makeFile(options.TmpDir, "sigstore_test_*.key", privPem)
-		result.LeafRef = makeFile(options.TmpDir, "sigstore.crt", leafPem)
-		result.IntermediatesRef = makeFile(options.TmpDir, "sigstore_chain.crt", intermediatesPem)
-		result.RootRef = makeFile(options.TmpDir, "sigstore_root.crt", rootPem)
+		result.PrivRef = MakeFile(options.TmpDir, "sigstore_*.pem.key", privPem)
+		result.LeafRef = MakeFile(options.TmpDir, "sigstore_*.pem.crt", leafPem)
+		result.IntermediatesRef = MakeFile(options.TmpDir, "sigstore_chain_*.pem.crt", intermediatesPem)
+		result.RootRef = MakeFile(options.TmpDir, "sigstore_root_*.pem.crt", rootPem)
 	}
 
 	return result
 }
 
-func makeFile(tmpDir, filePattern string, fileData []byte) string {
+func MakeFile(tmpDir, filePattern string, fileData []byte) string {
 	file, err := os.CreateTemp(tmpDir, filePattern)
 	Expect(err).To(Succeed(), fmt.Sprintf("creating file with pattern %q: %v", filePattern, err))
 	defer file.Close()

@@ -1,6 +1,8 @@
 package image_test
 
 import (
+	"context"
+
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
@@ -35,31 +37,7 @@ var _ = Describe("manifest", func() {
 			})
 			Expect(err).To(Succeed())
 
-			imageRef := "nginx:latest"
-
-			ref, err := name.ParseReference(imageRef)
-			Expect(err).To(Succeed())
-
-			desc, err := remote.Get(ref)
-			Expect(err).To(Succeed())
-
-			imgOriginal, err := desc.Image()
-			Expect(err).To(Succeed())
-
-			manifestOriginal, err := imgOriginal.Manifest()
-			Expect(err).To(Succeed())
-
-			sigAnnotations, err := image.GetSignatureAnnotationsForImageManifest(ctx, sv, manifestOriginal)
-			Expect(err).To(Succeed())
-
-			imgMutated := mutate.Annotations(imgOriginal, sigAnnotations).(v1.Image)
-			Expect(err).To(Succeed())
-
-			manifestMutated, err := imgMutated.Manifest()
-			Expect(err).To(Succeed())
-
-			err = image.VerifyImageManifestSignature(ctx, certGen.RootRef, manifestMutated)
-			Expect(err).To(Succeed())
+			test(ctx, sv, certGen.RootRef)
 		},
 		// ----- certs are file paths -----
 		Entry(
@@ -101,3 +79,31 @@ var _ = Describe("manifest", func() {
 		),
 	)
 })
+
+func test(ctx context.Context, sv *signver.SignerVerifier, rootRef string) {
+	imageRef := "nginx:latest"
+
+	ref, err := name.ParseReference(imageRef)
+	Expect(err).To(Succeed())
+
+	desc, err := remote.Get(ref)
+	Expect(err).To(Succeed())
+
+	imgOriginal, err := desc.Image()
+	Expect(err).To(Succeed())
+
+	manifestOriginal, err := imgOriginal.Manifest()
+	Expect(err).To(Succeed())
+
+	sigAnnotations, err := image.GetSignatureAnnotationsForImageManifest(ctx, sv, manifestOriginal)
+	Expect(err).To(Succeed())
+
+	imgMutated := mutate.Annotations(imgOriginal, sigAnnotations).(v1.Image)
+	Expect(err).To(Succeed())
+
+	manifestMutated, err := imgMutated.Manifest()
+	Expect(err).To(Succeed())
+
+	err = image.VerifyImageManifestSignature(ctx, rootRef, manifestMutated)
+	Expect(err).To(Succeed())
+}
