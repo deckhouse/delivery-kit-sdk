@@ -7,6 +7,7 @@ func (t TransitKeyType) String() string {
 }
 
 const (
-	// TransitKeyTypeECDSA256 https://developer.hashicorp.com/vault/api-docs/secret/transit#import-key
-	TransitKeyTypeECDSA256 = TransitKeyType("ecdsa-p256")
+	// TransitKeyType_ECDSA256 https://developer.hashicorp.com/vault/api-docs/secret/transit#import-key
+	TransitKeyType_ECDSA256 = TransitKeyType("ecdsa-p256")
+	TransitKeyType_ED25519  = TransitKeyType("ed25519")
 )

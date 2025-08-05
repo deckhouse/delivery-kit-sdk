@@ -15,12 +15,13 @@ import (
 	"github.com/deckhouse/delivery-kit-sdk/test/pkg/vault_server"
 )
 
-var _ = Describe("manifest", func() {
+var _ = Describe("manifest", Serial, func() {
 	DescribeTable("sign and verify image manifest using Vault Transit",
-		func(ctx SpecContext) {
+		func(ctx SpecContext, keyType cert_utils.KeyType) {
 			tmpDir := GinkgoT().TempDir()
 
 			vaultServer := vault_server.NewVaultServer(tmpDir)
+			vaultServer.Stop(ctx) // Ensure the server is stopped
 			vaultServer.Start(ctx)
 			defer vaultServer.Stop(ctx)
 			vaultServer.Ready(ctx)
@@ -36,6 +37,7 @@ var _ = Describe("manifest", func() {
 			// https://developer.hashicorp.com/vault/docs/secrets/transit#bring-your-own-key-byok
 
 			certGen := cert_utils.GenerateCertificatesWithOptions(cert_utils.GenerateCertificatesOptions{
+				KeyType:                      keyType,
 				PassFunc:                     cryptoutils.SkipPassword,
 				TmpDir:                       tmpDir,
 				NoIntermediates:              true,
@@ -52,7 +54,7 @@ var _ = Describe("manifest", func() {
 
 			vaultEndpoint := "endpoint"
 
-			vaultServer.ImportTransitKey(ctx, vaultNamespace, vaultEndpoint, prvKeyAsn1DerFileName, vault_server.TransitKeyTypeECDSA256)
+			vaultServer.ImportTransitKey(ctx, vaultNamespace, vaultEndpoint, prvKeyAsn1DerFileName, vaultKeyType(keyType))
 
 			_, chainRef, err := signver.ConcatChain(certGen.IntermediatesRef, certGen.RootRef)
 			Expect(err).To(Succeed())
@@ -70,7 +72,24 @@ var _ = Describe("manifest", func() {
 			test(ctx, sv, certGen.RootRef)
 		},
 		Entry(
-			"ecdsa key, without intermediates, root cert not in chain, certs are file paths",
+			"ECDSA_P256 key, without intermediates, root cert not in chain, certs are file paths",
+			cert_utils.KeyType_ECDSA_P256,
+		),
+		// TODO: we don't support ED25519 key type right now
+		XEntry(
+			"ED25519 key, without intermediates, root cert not in chain, certs are file paths",
+			cert_utils.KeyType_ED25519,
 		),
 	)
 })
+
+func vaultKeyType(keyType cert_utils.KeyType) vault_server.TransitKeyType {
+	switch keyType {
+	case cert_utils.KeyType_ECDSA_P256:
+		return vault_server.TransitKeyType_ECDSA256
+	case cert_utils.KeyType_ED25519:
+		return vault_server.TransitKeyType_ED25519
+	default:
+		panic(fmt.Sprintf("unsupported key type: %d", keyType))
+	}
+}

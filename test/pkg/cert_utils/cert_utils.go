@@ -3,6 +3,7 @@ package cert_utils
 import (
 	"crypto"
 	"crypto/ecdsa"
+	"crypto/ed25519"
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/x509"
@@ -23,7 +24,7 @@ import (
 	"github.com/deckhouse/delivery-kit-sdk/pkg/signver"
 )
 
-func createCertificate(template, parent *x509.Certificate, pub interface{}, priv crypto.Signer) (*x509.Certificate, error) {
+func createCertificate(template, parent *x509.Certificate, pub crypto.PublicKey, priv crypto.Signer) (*x509.Certificate, error) {
 	certBytes, err := x509.CreateCertificate(rand.Reader, template, parent, pub, priv)
 	Expect(err).To(Succeed())
 
@@ -32,10 +33,9 @@ func createCertificate(template, parent *x509.Certificate, pub interface{}, priv
 	return cert, nil
 }
 
-// GenerateRootCa
-// Copied from https://github.com/sigstore/cosign/blob/c948138c19691142c1e506e712b7c1646e8ceb21/test/cert_utils.go#L65
-// as is.
-func GenerateRootCa() (*x509.Certificate, *ecdsa.PrivateKey, error) {
+// generateRootCa
+// Inspired with https://github.com/sigstore/cosign/blob/c948138c19691142c1e506e712b7c1646e8ceb21/test/cert_utils.go#L65
+func generateRootCa(keyType KeyType) (*x509.Certificate, crypto.Signer, error) {
 	rootTemplate := &x509.Certificate{
 		SerialNumber: big.NewInt(1),
 		Subject: pkix.Name{
@@ -49,19 +49,18 @@ func GenerateRootCa() (*x509.Certificate, *ecdsa.PrivateKey, error) {
 		IsCA:                  true,
 	}
 
-	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	priv, err := generateKey(keyType)
 	Expect(err).To(Succeed())
 
-	cert, err := createCertificate(rootTemplate, rootTemplate, &priv.PublicKey, priv)
+	cert, err := createCertificate(rootTemplate, rootTemplate, priv.Public(), priv)
 	Expect(err).To(Succeed())
 
 	return cert, priv, nil
 }
 
-// GenerateSubordinateCa
-// Copied from https://github.com/sigstore/cosign/blob/c948138c19691142c1e506e712b7c1646e8ceb21/test/cert_utils.go#L92
-// as is.
-func GenerateSubordinateCa(rootTemplate *x509.Certificate, rootPriv crypto.Signer) (*x509.Certificate, *ecdsa.PrivateKey, error) {
+// generateSubordinateCa
+// Inspired with https://github.com/sigstore/cosign/blob/c948138c19691142c1e506e712b7c1646e8ceb21/test/cert_utils.go#L92
+func generateSubordinateCa(keyType KeyType, rootTemplate *x509.Certificate, rootPriv crypto.Signer) (*x509.Certificate, crypto.Signer, error) {
 	subTemplate := &x509.Certificate{
 		SerialNumber: big.NewInt(1),
 		Subject: pkix.Name{
@@ -76,19 +75,18 @@ func GenerateSubordinateCa(rootTemplate *x509.Certificate, rootPriv crypto.Signe
 		IsCA:                  true,
 	}
 
-	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	priv, err := generateKey(keyType)
 	Expect(err).To(Succeed())
 
-	cert, err := createCertificate(subTemplate, rootTemplate, &priv.PublicKey, rootPriv)
+	cert, err := createCertificate(subTemplate, rootTemplate, priv.Public(), rootPriv)
 	Expect(err).To(Succeed())
 
 	return cert, priv, nil
 }
 
-// GenerateLeafCert
-// Copied from https://github.com/sigstore/cosign/blob/c948138c19691142c1e506e712b7c1646e8ceb21/test/cert_utils.go#L148
-// as is.
-func GenerateLeafCert(subject, oidcIssuer string, parentTemplate *x509.Certificate, parentPriv crypto.Signer, exts ...pkix.Extension) (*x509.Certificate, *ecdsa.PrivateKey, error) {
+// generateLeafCert
+// Inspired with https://github.com/sigstore/cosign/blob/c948138c19691142c1e506e712b7c1646e8ceb21/test/cert_utils.go#L148
+func generateLeafCert(keyType KeyType, subject, oidcIssuer string, parentTemplate *x509.Certificate, parentPriv crypto.Signer, exts ...pkix.Extension) (*x509.Certificate, crypto.Signer, error) {
 	exts = append(exts, pkix.Extension{
 		// OID for OIDC Issuer extension
 		Id:       asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 1},
@@ -106,17 +104,29 @@ func GenerateLeafCert(subject, oidcIssuer string, parentTemplate *x509.Certifica
 		ExtraExtensions: exts,
 	}
 
-	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	priv, err := generateKey(keyType)
 	Expect(err).To(Succeed())
 
-	cert, err := createCertificate(certTemplate, parentTemplate, &priv.PublicKey, parentPriv)
+	cert, err := createCertificate(certTemplate, parentTemplate, priv.Public(), parentPriv)
 	Expect(err).To(Succeed())
 
 	return cert, priv, nil
 }
 
+func generateKey(keyType KeyType) (crypto.Signer, error) {
+	switch keyType {
+	case KeyType_ECDSA_P256:
+		return ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	case KeyType_ED25519:
+		_, priv, err := ed25519.GenerateKey(rand.Reader)
+		return priv, err
+	default:
+		panic(fmt.Sprintf("unsupported key type: %s", keyType))
+	}
+}
+
 type GenerateCertificatesResult struct {
-	PrivKey           *ecdsa.PrivateKey
+	PrivKey           crypto.Signer
 	LeafCert          *x509.Certificate
 	IntermediateCerts []*x509.Certificate
 	RootCert          *x509.Certificate
@@ -128,6 +138,7 @@ type GenerateCertificatesResult struct {
 }
 
 type GenerateCertificatesOptions struct {
+	KeyType                      KeyType
 	PassFunc                     cryptoutils.PassFunc
 	TmpDir                       string
 	NoIntermediates              bool
@@ -138,22 +149,22 @@ type GenerateCertificatesOptions struct {
 // GenerateCertificatesWithOptions
 // Inspired with https://github.com/sigstore/cosign/blob/c948138c19691142c1e506e712b7c1646e8ceb21/cmd/cosign/cli/sign/sign_test.go#L46
 func GenerateCertificatesWithOptions(options GenerateCertificatesOptions) GenerateCertificatesResult {
-	rootCert, rootKey, err := GenerateRootCa()
+	rootCert, rootKey, err := generateRootCa(options.KeyType)
 	Expect(err).To(Succeed(), fmt.Sprintf("failed to generate root ca: %v", err))
 
 	var subCert *x509.Certificate
-	var subKey *ecdsa.PrivateKey
+	var subKey crypto.Signer
 	var leafCert *x509.Certificate
-	var privKey *ecdsa.PrivateKey
+	var privKey crypto.Signer
 
 	if options.NoIntermediates {
-		leafCert, privKey, err = GenerateLeafCert("subject", "oidc-issuer", rootCert, rootKey)
+		leafCert, privKey, err = generateLeafCert(options.KeyType, "subject", "oidc-issuer", rootCert, rootKey)
 		Expect(err).To(Succeed(), fmt.Sprintf("failed to generate leaf ca: %v", err))
 	} else {
-		subCert, subKey, err = GenerateSubordinateCa(rootCert, rootKey)
+		subCert, subKey, err = generateSubordinateCa(options.KeyType, rootCert, rootKey)
 		Expect(err).To(Succeed(), fmt.Sprintf("failed to generate subordinate ca: %v", err))
 
-		leafCert, privKey, err = GenerateLeafCert("subject", "oidc-issuer", subCert, subKey)
+		leafCert, privKey, err = generateLeafCert(options.KeyType, "subject", "oidc-issuer", subCert, subKey)
 		Expect(err).To(Succeed(), fmt.Sprintf("failed to generate leaf ca: %v", err))
 	}
 
