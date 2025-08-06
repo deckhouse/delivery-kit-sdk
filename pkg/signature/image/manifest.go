@@ -55,18 +55,7 @@ func VerifyImageManifestSignature(ctx context.Context, rootCertRef string, manif
 func getManifestPayloadHash(manifest *v1.Manifest) (string, error) {
 	var hashes []string
 	hashes = append(hashes, strconv.FormatInt(manifest.SchemaVersion, 10), string(manifest.MediaType))
-
-	// IMPORTANT NODE.
-	// Here we could have two different manifest sources:
-	// a) remoteManifest from container registry
-	// b) localManifest from local image
-	// Because local manifest can contain some random data AND because calculation algorithms are different for each
-	// manifest source, the expression remoteManifest.Config.Digest == localManifest.Config.Digest is always failed.
-	// Thus, we have next approaches to handle it:
-	// 1) Use mutate.Canonical(img) expensive operation to unify remote and local images.
-	// 2) Exclude img.Config.Digest from payload hash calculation.
-	// This code uses second approach.
-	hashes = append(hashes /* manifest.Config.Digest.String() */, string(manifest.Config.MediaType), strconv.FormatInt(manifest.Config.Size, 10))
+	hashes = append(hashes, manifest.Config.Digest.String(), string(manifest.Config.MediaType), strconv.FormatInt(manifest.Config.Size, 10))
 
 	for _, layer := range manifest.Layers {
 		hashes = append(hashes, layer.Digest.String(), string(layer.MediaType), strconv.FormatInt(layer.Size, 10))

@@ -110,7 +110,7 @@ func validateMkfsVersion(ctx context.Context) error {
 		}
 	}
 
-	requiredVersion := "1.8.6"
+	requiredVersion := "1.8.10"
 	if versionMatch != requiredVersion {
 		return fmt.Errorf("mkfs.erofs version %s does not match the required version %s", versionMatch, requiredVersion)
 	}
@@ -127,7 +127,7 @@ func createErofsImage(ctx context.Context, rc io.Reader, erofsPath, mkfsBuildTim
 		return err
 	}
 
-	mkfs := exec.CommandContextCancellation(ctx, "mkfs.erofs", "-Uclear", "-T"+mkfsBuildTimestamp, "-x-1", "-Enoinline_data", "--tar=-", erofsPath)
+	mkfs := exec.CommandContextCancellation(ctx, "mkfs.erofs", "-Uclear", "-T"+mkfsBuildTimestamp, "-x-1", "-Enoinline_data", "--aufs", "--tar=-", erofsPath)
 	mkfs.Stderr = os.Stderr
 	mkfs.Stdin = rc
 
@@ -138,7 +138,17 @@ func createErofsImage(ctx context.Context, rc io.Reader, erofsPath, mkfsBuildTim
 }
 
 func CreateHashImageFile(ctx context.Context, erofsPath, hashPath string) error {
-	return createHashImageFile(ctx, erofsPath, hashPath)
+	err := createHashImageFile(ctx, erofsPath, hashPath)
+	if err != nil {
+		return fmt.Errorf("create image file: %w", err)
+	}
+
+	_, err = getVeritySetupFormatRootHash(ctx, erofsPath, hashPath)
+	if err != nil {
+		return fmt.Errorf("format image file: %w", err)
+	}
+
+	return nil
 }
 
 func createHashImageFile(_ context.Context, erofsPath, hashPath string) error {
