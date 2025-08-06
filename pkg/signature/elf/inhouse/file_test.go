@@ -23,7 +23,7 @@ const (
 )
 
 var _ = Describe("signature/elf/custom", func() {
-	XDescribeTable("should add new signature",
+	DescribeTable("should add new signature",
 		func(ctx SpecContext) {
 			signerVerifier := newSignerVerifier(ctx)
 
@@ -44,7 +44,7 @@ var _ = Describe("signature/elf/custom", func() {
 		),
 	)
 
-	XDescribeTable("should update outdated signature",
+	DescribeTable("should update outdated signature",
 		func(ctx SpecContext) {
 			signerVerifier := newSignerVerifier(ctx)
 
@@ -101,7 +101,7 @@ var _ = Describe("signature/elf/custom", func() {
 		),
 	)
 
-	XDescribeTable("should verify signature",
+	DescribeTable("should verify signature",
 		func(ctx SpecContext) {
 			Expect(inhouse.Verify(ctx, cert_utils.RootCABase64, helloElfFileWithSignature)).To(Succeed())
 		},
