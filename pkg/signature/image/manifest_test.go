@@ -133,7 +133,7 @@ var _ = Describe("manifest", func() {
 })
 
 func testSign(ctx context.Context, sv *signver.SignerVerifier) (v1.Image, map[string]string) {
-	imageRef := "nginx:latest"
+	imageRef := "alpine:3.19"
 
 	ref, err := name.ParseReference(imageRef)
 	Expect(err).To(Succeed())
