@@ -14,11 +14,11 @@ import (
 	"github.com/secure-systems-lab/go-securesystemslib/encrypted"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"github.com/sigstore/sigstore/pkg/signature"
-	"github.com/sigstore/sigstore/pkg/signature/kms"
-	_ "github.com/sigstore/sigstore/pkg/signature/kms/hashivault"
 	"golang.org/x/crypto/ed25519"
 
 	"github.com/deckhouse/delivery-kit-sdk/pkg/signver/blob"
+	"github.com/deckhouse/delivery-kit-sdk/pkg/signver/kms"
+	_ "github.com/deckhouse/delivery-kit-sdk/pkg/signver/kms/hashivault"
 )
 
 const (
