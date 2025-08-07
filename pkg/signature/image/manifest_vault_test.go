@@ -58,9 +58,9 @@ var _ = Describe("manifest", Serial, func() {
 			_, chainRef, err := signver.ConcatChain(certGen.IntermediatesRef, certGen.RootRef)
 			Expect(err).To(Succeed())
 
-			Expect(os.Setenv("TRANSIT_SECRET_ENGINE_PATH", vaultNamespace))
-			Expect(os.Setenv("VAULT_ADDR", vaultServer.Addr.String()))
-			Expect(os.Setenv("VAULT_TOKEN", vaultServer.RootToken))
+			GinkgoT().Setenv("TRANSIT_SECRET_ENGINE_PATH", vaultNamespace)
+			GinkgoT().Setenv("VAULT_ADDR", vaultServer.Addr.String())
+			GinkgoT().Setenv("VAULT_TOKEN", vaultServer.RootToken)
 
 			sv, err := signver.NewSignerVerifier(ctx, certGen.LeafRef, chainRef, signver.KeyOpts{
 				KeyRef:   fmt.Sprintf("hashivault://%s", vaultEndpoint),
@@ -84,7 +84,9 @@ var _ = Describe("manifest", Serial, func() {
 
 	DescribeTable("sign and verify image manifest using remote Vault",
 		func(ctx SpecContext, keyRef, certRef, chainRef, rootRef string, useVerification bool) {
-			skipTestIfEnvironmentVariablesNotSet()
+			if os.Getenv("TRANSIT_SECRET_ENGINE_PATH") == "" || os.Getenv("VAULT_ADDR") == "" || os.Getenv("VAULT_TOKEN") == "" {
+				Skip("Skipped because TRANSIT_SECRET_ENGINE_PATH, VAULT_ADDR or VAULT_TOKEN is not set")
+			}
 
 			sv, err := signver.NewSignerVerifier(ctx, certRef, chainRef, signver.KeyOpts{
 				KeyRef: keyRef,
@@ -126,20 +128,5 @@ func vaultKeyType(keyType cert_utils.KeyType) vault_server.TransitKeyType {
 		return vault_server.TransitKeyType_ED25519
 	default:
 		panic(fmt.Sprintf("unsupported key type: %d", keyType))
-	}
-}
-
-func skipTestIfEnvironmentVariablesNotSet() {
-	variables := []string{
-		"TRANSIT_SECRET_ENGINE_PATH",
-		"VAULT_ADDR",
-		"VAULT_ROLE_ID",
-		"VAULT_SECRET_ID",
-	}
-
-	for _, v := range variables {
-		if os.Getenv(v) == "" {
-			Skip(fmt.Sprintf("%s environment variable is not set", v))
-		}
 	}
 }
