@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
 	"os/exec"
 	"path/filepath"
 
@@ -12,7 +13,7 @@ import (
 
 type VaultServer struct {
 	RootToken string
-	Addr      string
+	Addr      *url.URL
 	MountDir  string
 }
 
@@ -22,9 +23,12 @@ const (
 )
 
 func NewVaultServer(mountDir string) *VaultServer {
+	urlParsed, err := url.Parse("http://localhost:8200")
+	Expect(err).To(Succeed())
+
 	return &VaultServer{
 		RootToken: "my-root-token",
-		Addr:      "http://localhost:8200",
+		Addr:      urlParsed,
 		MountDir:  mountDir,
 	}
 }
@@ -37,9 +41,9 @@ func (vs *VaultServer) Start(ctx context.Context) {
 	// Create and start the Vault container
 	_, err = runCommand(ctx, "docker", "run", "-d", "--rm",
 		"-e", fmt.Sprintf("VAULT_DEV_ROOT_TOKEN_ID=%s", vs.RootToken),
-		"-e", "VAULT_DEV_LISTEN_ADDRESS=0.0.0.0:8200",
+		"-e", fmt.Sprintf("VAULT_DEV_LISTEN_ADDRESS=0.0.0.0:%s", vs.Addr.Port()),
 		"-v", fmt.Sprintf("%s:%s:ro", vs.MountDir, vs.MountDir),
-		"-p", "8200:8200",
+		"-p", fmt.Sprintf("%s:8200", vs.Addr.Port()),
 		"--name", vaultContainerID,
 		vaultImage,
 		"server", "--dev")
@@ -80,7 +84,7 @@ func (vs *VaultServer) ImportTransitKey(ctx context.Context, path, endpoint, key
 }
 
 func (vs *VaultServer) exec(ctx context.Context, args ...string) (string, error) {
-	cmdArgs := []string{"exec", "-e", fmt.Sprintf("VAULT_ADDR=%s", vs.Addr), "-e", fmt.Sprintf("VAULT_TOKEN=%s", vs.RootToken), vaultContainerID, "vault"}
+	cmdArgs := []string{"exec", "-e", fmt.Sprintf("VAULT_ADDR=%s", vs.Addr.String()), "-e", fmt.Sprintf("VAULT_TOKEN=%s", vs.RootToken), vaultContainerID, "vault"}
 	cmdArgs = append(cmdArgs, args...)
 	return runCommand(ctx, "docker", cmdArgs...)
 }

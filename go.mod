@@ -1,8 +1,6 @@
 module github.com/deckhouse/delivery-kit-sdk
 
-go 1.23.0
-
-toolchain go1.23.10
+go 1.23.10
 
 require (
 	github.com/google/certificate-transparency-go v1.1.7
@@ -70,3 +68,5 @@ require (
 	golang.org/x/tools v0.29.0 // indirect
 	google.golang.org/protobuf v1.36.6 // indirect
 )
+
+replace github.com/sigstore/sigstore/pkg/signature/kms/hashivault => github.com/nervgh/sigstore/pkg/signature/kms/hashivault v1.9.6-0.20250807140939-6f28c3e6499a
