@@ -2,10 +2,10 @@ package image_test
 
 import (
 	"context"
+	"maps"
 
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
-	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -38,8 +38,8 @@ var _ = Describe("manifest", func() {
 			})
 			Expect(err).To(Succeed())
 
-			imgOriginal, sigAnnotations := testSign(ctx, sv)
-			testVerify(ctx, imgOriginal, sigAnnotations, certGen.RootRef)
+			manifest := testSign(ctx, sv)
+			testVerify(ctx, manifest, certGen.RootRef)
 		},
 		// ----- key_type=ECDSA_P256, certs are file paths -----
 		Entry(
@@ -132,7 +132,7 @@ var _ = Describe("manifest", func() {
 	)
 })
 
-func testSign(ctx context.Context, sv *signver.SignerVerifier) (v1.Image, map[string]string) {
+func testSign(ctx context.Context, sv *signver.SignerVerifier) *v1.Manifest {
 	imageRef := "alpine:3.19"
 
 	ref, err := name.ParseReference(imageRef)
@@ -144,21 +144,18 @@ func testSign(ctx context.Context, sv *signver.SignerVerifier) (v1.Image, map[st
 	imgOriginal, err := desc.Image()
 	Expect(err).To(Succeed())
 
-	manifestOriginal, err := imgOriginal.Manifest()
+	manifest, err := imgOriginal.Manifest()
 	Expect(err).To(Succeed())
 
-	sigAnnotations, err := image.GetSignatureAnnotationsForImageManifest(ctx, sv, manifestOriginal)
+	sigAnnotations, err := image.GetSignatureAnnotationsForImageManifest(ctx, sv, manifest)
 	Expect(err).To(Succeed())
 
-	return imgOriginal, sigAnnotations
+	maps.Copy(manifest.Annotations, sigAnnotations)
+
+	return manifest
 }
 
-func testVerify(ctx context.Context, imgOriginal v1.Image, sigAnnotations map[string]string, rootRef string) {
-	imgMutated := mutate.Annotations(imgOriginal, sigAnnotations).(v1.Image)
-
-	manifestMutated, err := imgMutated.Manifest()
-	Expect(err).To(Succeed())
-
-	err = image.VerifyImageManifestSignature(ctx, rootRef, manifestMutated)
+func testVerify(ctx context.Context, manifest *v1.Manifest, rootRef string) {
+	err := image.VerifyImageManifestSignature(ctx, rootRef, manifest)
 	Expect(err).To(Succeed())
 }
