@@ -123,7 +123,7 @@ var _ = Describe("manifest", Serial, func() {
 	)
 
 	DescribeTable("auth token renewal using remote Vault",
-		func(ctx SpecContext, keyRef, certRef, chainRef, rootRef string, signingTimeout, signingInterval time.Duration, signingCount int) {
+		func(ctx SpecContext, keyRef, certRef, chainRef, rootRef string, signingAttemptTimeout, signingAttemptInterval, signingExperiment time.Duration) {
 			if os.Getenv("TRANSIT_SECRET_ENGINE_PATH") == "" ||
 				os.Getenv("VAULT_ADDR") == "" ||
 				os.Getenv("VAULT_ROLE_ID") == "" ||
@@ -136,16 +136,17 @@ var _ = Describe("manifest", Serial, func() {
 			})
 			Expect(err).To(Succeed())
 
-			i := 1
+			experimentStartedAt := time.Now()
+			attempt := 1
 
-			Eventually(func() int {
-				t1 := time.Now()
-				fmt.Printf("Signing %d ... ", i)
+			Eventually(func() time.Duration {
+				attemptStartedAt := time.Now()
+				fmt.Printf("Signing %d ... ", attempt)
 				testSign(ctx, sv)
-				fmt.Printf("done (%s, %s).\n", time.Since(t1), time.Now().Format(time.TimeOnly))
-				i++
-				return i
-			}, signingTimeout, signingInterval).Should(Equal(signingCount))
+				fmt.Printf("done (%s, %s).\n", time.Since(attemptStartedAt), time.Now().Format(time.TimeOnly))
+				attempt++
+				return time.Since(experimentStartedAt)
+			}, signingAttemptTimeout, signingAttemptInterval).Should(BeNumerically(">=", signingExperiment))
 		},
 		Entry(
 			"should renew auth token which has ttl=3m",
@@ -154,8 +155,8 @@ var _ = Describe("manifest", Serial, func() {
 			"LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUNvakNDQWxTZ0F3SUJBZ0lVWmNiNE9WTmhhbXJOTU53dlRFT1J5RGFJMHhjd0JRWURLMlZ3TUhneEN6QUoKQmdOVkJBWVRBbEpWTVE4d0RRWURWUVFJRXdaTmIzTmpiM2N4RHpBTkJnTlZCQWNUQmsxdmMyTnZkekVTTUJBRwpBMVVFQ2hNSlNsTkRJRVpzWVc1ME1SQXdEZ1lEVlFRTEV3ZEpibVp2YzJWak1TRXdId1lEVlFRREV4aEtVME1nClJteGhiblFnVW05dmRDQkRRU0JCTFRJd01qVXdIaGNOTWpVd056SXhNVE16TXpVeldoY05NelV3TnpFNU1UTXoKTkRJeldqQjdNUXN3Q1FZRFZRUUdFd0pTVlRFUE1BMEdBMVVFQ0JNR1RXOXpZMjkzTVE4d0RRWURWUVFIRXdaTgpiM05qYjNjeEVqQVFCZ05WQkFvVENVcFRReUJHYkdGdWRERVNNQkFHQTFVRUN4TUpSR1ZqYTJodmRYTmxNU0l3CklBWURWUVFERXhsS1UwTWdSbXhoYm5RZ1NXNTBaWEp0WldScFlYUmxJRU5CTUNvd0JRWURLMlZ3QXlFQTYyeG4KcVJEUm5uSGZDRXJlNFliYW55aDNDT2p6Z3N1alFSenJGSlVtS2Ztamdld3dnZWt3RGdZRFZSMFBBUUgvQkFRRApBZ0VHTUE4R0ExVWRFd0VCL3dRRk1BTUJBZjh3SFFZRFZSME9CQllFRkJZaUI3bWp2cldPTUQxTVd5R0dWUjRiCkNjL3JNQjhHQTFVZEl3UVlNQmFBRkpCZ0s0NjYzVVdZMEhKbTVGb1plK1Rsem1mek1FY0dDQ3NHQVFVRkJ3RUIKQkRzd09UQTNCZ2dyQmdFRkJRY3dBb1lyYUhSMGNITTZMeTh4TWpjdU1DNHdMakU2T0RJd01DOTJNUzl3YTJrdApabXhoYm5RdGNtOXZkQzlqWVRBOUJnTlZIUjhFTmpBME1ES2dNS0F1aGl4b2RIUndjem92THpFeU55NHdMakF1Ck1UbzRNakF3TDNZeEwzQnJhUzFtYkdGdWRDMXliMjkwTDJOeWJEQUZCZ01yWlhBRFFRQnNOZWNUU0l6bmxvQWYKYkViU2JERlpGb20wMXc2WDN5WVpqVmFOQngrNEZmV3JNZ1ppU05rM3NkZ0dNRlpEVnVaZWl4OXlQUTk3bVIzWgpaTXU0Q3JRUAotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0t",
 			"LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUNGVENDQWNlZ0F3SUJBZ0lVZElhblV0Nk0vNnFTL0RzMXJWSjZoc09JTmYwd0JRWURLMlZ3TUhneEN6QUoKQmdOVkJBWVRBbEpWTVE4d0RRWURWUVFJRXdaTmIzTmpiM2N4RHpBTkJnTlZCQWNUQmsxdmMyTnZkekVTTUJBRwpBMVVFQ2hNSlNsTkRJRVpzWVc1ME1SQXdEZ1lEVlFRTEV3ZEpibVp2YzJWak1TRXdId1lEVlFRREV4aEtVME1nClJteGhiblFnVW05dmRDQkRRU0JCTFRJd01qVXdIaGNOTWpVd056SXhNVE15TkRVMFdoY05ORFV3TnpFMk1UTXkKTlRJMFdqQjRNUXN3Q1FZRFZRUUdFd0pTVlRFUE1BMEdBMVVFQ0JNR1RXOXpZMjkzTVE4d0RRWURWUVFIRXdaTgpiM05qYjNjeEVqQVFCZ05WQkFvVENVcFRReUJHYkdGdWRERVFNQTRHQTFVRUN4TUhTVzVtYjNObFl6RWhNQjhHCkExVUVBeE1ZU2xORElFWnNZVzUwSUZKdmIzUWdRMEVnUVMweU1ESTFNQ293QlFZREsyVndBeUVBbGd1Q3hQRHUKV1VhajZjazZHdFIrZGdCNS9SRENSNmdhSWkzN3ZCQmx0ZE9qWXpCaE1BNEdBMVVkRHdFQi93UUVBd0lCQmpBUApCZ05WSFJNQkFmOEVCVEFEQVFIL01CMEdBMVVkRGdRV0JCU1FZQ3VPdXQxRm1OQnladVJhR1h2azVjNW44ekFmCkJnTlZIU01FR0RBV2dCU1FZQ3VPdXQxRm1OQnladVJhR1h2azVjNW44ekFGQmdNclpYQURRUUJxbTd5S21mVG0KV01PcFdHRldxSVJLcmJnRW44NkpyQmVWSXFXakVUMWs2NEVjR2pFN0JkdWxqdjdDVGhCQ2xwY1c3bzFuUGlVeApZeDFUNnMvSmU3b0kKLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLQo=",
 			time.Minute*5,
-			time.Second*20,
-			20,
+			time.Second*10,
+			time.Minute*4,
 		),
 	)
 })
