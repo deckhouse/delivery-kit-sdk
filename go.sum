@@ -83,8 +83,8 @@ github.com/mitchellh/go-wordwrap v1.0.0/go.mod h1:ZXFpozHsX6DPmq2I0TCekCxypsnAUb
 github.com/mitchellh/mapstructure v1.4.1/go.mod h1:bFUtVrKA4DC2yAKiSyO/QUcy7e+RRV2QTWOzhPopBRo=
 github.com/mitchellh/mapstructure v1.5.0 h1:jeMsZIYE/09sWLaz43PL7Gy6RuMjD2eJVyuac5Z2hdY=
 github.com/mitchellh/mapstructure v1.5.0/go.mod h1:bFUtVrKA4DC2yAKiSyO/QUcy7e+RRV2QTWOzhPopBRo=
-github.com/nervgh/sigstore/pkg/signature/kms/hashivault v1.9.6-0.20250808120345-a16cdd935f7a h1:scKms9RFgyogv7OdNjXwPVZ69LHEU+jSbYOEmnXX9ik=
-github.com/nervgh/sigstore/pkg/signature/kms/hashivault v1.9.6-0.20250808120345-a16cdd935f7a/go.mod h1:m7sQxVJmDa+rsmS1m6biQxaLX83pzNS7ThUEyjOqkCU=
+github.com/nervgh/sigstore/pkg/signature/kms/hashivault v1.9.6-0.20250807140939-6f28c3e6499a h1:HakA2/aeSGPFPc+OUm6/8arlNhqIwK1+d3wX3QKRrQw=
+github.com/nervgh/sigstore/pkg/signature/kms/hashivault v1.9.6-0.20250807140939-6f28c3e6499a/go.mod h1:m7sQxVJmDa+rsmS1m6biQxaLX83pzNS7ThUEyjOqkCU=
 github.com/onsi/ginkgo/v2 v2.20.1 h1:YlVIbqct+ZmnEph770q9Q7NVAz4wwIiVNahee6JyUzo=
 github.com/onsi/ginkgo/v2 v2.20.1/go.mod h1:lG9ey2Z29hR41WMVthyJBGUBcBhGOtoPF2VFMvBXFCI=
 github.com/onsi/gomega v1.36.0 h1:Pb12RlruUtj4XUuPUqeEWc6j5DkVVVA49Uf6YLfC95Y=
