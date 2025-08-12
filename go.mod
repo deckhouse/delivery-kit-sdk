@@ -69,4 +69,4 @@ require (
 	google.golang.org/protobuf v1.36.6 // indirect
 )
 
-replace github.com/sigstore/sigstore/pkg/signature/kms/hashivault => github.com/nervgh/sigstore/pkg/signature/kms/hashivault v1.9.6-0.20250807140939-6f28c3e6499a
+replace github.com/sigstore/sigstore/pkg/signature/kms/hashivault => github.com/deckhouse/3p-sigstore/pkg/signature/kms/hashivault v0.0.0-20250808120345-a16cdd935f7a
