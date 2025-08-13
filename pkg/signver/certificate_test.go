@@ -1,6 +1,9 @@
 package signver_test
 
 import (
+	"crypto/x509"
+	"slices"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
@@ -33,74 +36,64 @@ var _ = Describe("certificate", func() {
 	)
 
 	DescribeTable("VerifyChain()",
-		func(noIntermediates, ExcludeRootFromIntermediates, useBase64Encoding bool) {
+		func(noIntermediates, useBase64Encoding bool) {
 			certGen := cert_utils.GenerateCertificatesWithOptions(cert_utils.GenerateCertificatesOptions{
-				PassFunc:                     cryptoutils.SkipPassword,
-				TmpDir:                       GinkgoT().TempDir(),
-				NoIntermediates:              noIntermediates,
-				ExcludeRootFromIntermediates: ExcludeRootFromIntermediates,
-				UseBase64Encoding:            useBase64Encoding,
+				PassFunc:          cryptoutils.SkipPassword,
+				TmpDir:            GinkgoT().TempDir(),
+				NoIntermediates:   noIntermediates,
+				UseBase64Encoding: useBase64Encoding,
 			})
 
-			_, chainRef, err := signver.ConcatChain(certGen.IntermediatesRef, certGen.RootRef)
-			Expect(err).To(Succeed())
-			roots, intermediates, err := signver.VerifyChain(certGen.LeafRef, chainRef)
+			roots, intermediates, err := signver.VerifyChain(certGen.LeafRef, certGen.ChainRef)
 			Expect(err).To(Succeed())
 
-			Expect(roots).To(HaveLen(1))
-
-			switch {
-			case noIntermediates && ExcludeRootFromIntermediates:
-				Expect(intermediates).To(HaveLen(0))
-				Expect(roots[0]).To(Equal(certGen.RootCert))
-			case noIntermediates && !ExcludeRootFromIntermediates:
-				Fail("not allowed")
-			case !noIntermediates && ExcludeRootFromIntermediates:
-				Expect(intermediates).To(HaveLen(1))
-				Expect(intermediates[0]).To(Equal(certGen.IntermediateCerts[0]))
-				Expect(roots[0]).To(Equal(certGen.RootCert))
-			case !noIntermediates && !ExcludeRootFromIntermediates:
-				Expect(intermediates).To(HaveLen(1))
-				Expect(intermediates[0]).To(Equal(certGen.IntermediateCerts[0]))
-				Expect(roots[0]).To(Equal(certGen.IntermediateCerts[1]))
-			}
+			Expect(roots).To(HaveExactElements([]*x509.Certificate{certGen.RootCert})) // only one root cert
+			Expect(intermediates).To(HaveExactElements(certGen.IntermediateCerts))     // 0 or more intermediates
+			Expect(slices.Concat(intermediates, roots)).To(HaveExactElements(certGen.ChainCerts))
 		},
 		// ----- certs are file paths -----
 		Entry(
-			"with intermediates, root cert in chain, certs are file paths",
-			false,
+			"with intermediates, certs are file paths",
 			false,
 			false,
 		),
 		Entry(
-			"with intermediates, root cert not in chain, certs are file paths",
-			false,
-			true,
-			false,
-		),
-		Entry(
-			"without intermediates, root cert not in chain, certs are file paths",
-			true,
+			"without intermediates, certs are file paths",
 			true,
 			false,
 		),
 		// ----- certs are base64 stings -----
 		Entry(
-			"with intermediates, root cert in chain, certs are base64 stings",
-			false,
+			"with intermediates, certs are base64 stings",
 			false,
 			true,
 		),
 		Entry(
-			"with intermediates, root cert not in chain, certs are base64 stings",
-			false,
+			"without intermediates, certs are base64 stings",
 			true,
 			true,
 		),
+	)
+
+	DescribeTable("ConcatChain()",
+		func(noIntermediates bool) {
+			certGen := cert_utils.GenerateCertificatesWithOptions(cert_utils.GenerateCertificatesOptions{
+				PassFunc:        cryptoutils.SkipPassword,
+				TmpDir:          GinkgoT().TempDir(),
+				NoIntermediates: noIntermediates,
+			})
+
+			chainCerts, chainRef, err := signver.ConcatChain(certGen.IntermediatesRef, certGen.RootRef)
+			Expect(err).To(Succeed())
+			Expect(chainCerts).To(HaveExactElements(certGen.ChainCerts))
+			Expect(chainRef).NotTo(Equal(certGen.ChainRef))
+		},
 		Entry(
-			"without intermediates, root cert not in chain, certs are base64 stings",
-			true,
-			true,
+			"with intermediates",
+			false,
+		),
+		Entry(
+			"without intermediates",
 			true,
 		),
 	)
