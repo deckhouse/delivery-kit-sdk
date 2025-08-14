@@ -23,7 +23,7 @@ const (
 )
 
 var _ = Describe("signature/elf/custom", func() {
-	XDescribeTable("should add new signature",
+	DescribeTable("should add new signature",
 		func(ctx SpecContext) {
 			signerVerifier := newSignerVerifier(ctx)
 
@@ -44,7 +44,7 @@ var _ = Describe("signature/elf/custom", func() {
 		),
 	)
 
-	XDescribeTable("should update outdated signature",
+	DescribeTable("should update outdated signature",
 		func(ctx SpecContext) {
 			signerVerifier := newSignerVerifier(ctx)
 
@@ -65,24 +65,6 @@ var _ = Describe("signature/elf/custom", func() {
 		),
 	)
 
-	// DescribeTable("should not update up-to-date signature and leave file intact",
-	// 	func(ctx SpecContext) {
-	// 		signerVerifier := newSignerVerifier(ctx)
-	//
-	// 		oldElfBinary := readFile(helloElfFileWithSignature)
-	// 		newElfFilePath, cleanupTmpFile := makeTempFileCopy(helloElfFileWithSignature, "hello.*.elf")
-	// 		defer cleanupTmpFile()
-	//
-	// 		Expect(custom.Sign(ctx, newElfFilePath, signerVerifier, cert_utils.RootCABase64)).To(Succeed())
-	//
-	// 		newElfBinary := readFile(newElfFilePath)
-	// 		Expect(newElfBinary).To(Equal(oldElfBinary))
-	// 	},
-	// 	Entry(
-	// 		"with x509 certs",
-	// 	),
-	// )
-
 	DescribeTable("should fail to sign non-elf file",
 		func(ctx SpecContext) {
 			signerVerifier := newSignerVerifier(ctx)
@@ -101,7 +83,7 @@ var _ = Describe("signature/elf/custom", func() {
 		),
 	)
 
-	XDescribeTable("should verify signature",
+	DescribeTable("should verify signature",
 		func(ctx SpecContext) {
 			Expect(inhouse.Verify(ctx, cert_utils.RootCABase64, helloElfFileWithSignature)).To(Succeed())
 		},
