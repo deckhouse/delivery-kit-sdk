@@ -1,5 +1,5 @@
-//go:build linux
-// +build linux
+//go:build linux && cgo
+// +build linux,cgo
 
 package inhouse
 
@@ -94,32 +94,7 @@ func Sign(ctx context.Context, signerVerifier *signver.SignerVerifier, path stri
 	}
 	defer C.free(unsafe.Pointer(cNewHashBuf))
 
-	// var cOldSignatureBundleBuf *C.uchar
-	// var cOldSignatureBundleSize C.size_t
-	// if C.welf_get_elf_signature(cElf, &cOldSignatureBundleBuf, &cOldSignatureBundleSize) < 0 {
-	// 	return fmt.Errorf("get elf signature failed: %s", C.GoString(C.welf_errmsg()))
-	// }
-
 	hashBytes := C.GoBytes(unsafe.Pointer(cNewHashBuf), C.int(cNewHashSize))
-
-	// if cOldSignatureBundleBuf != nil {
-	// 	defer C.free(unsafe.Pointer(cOldSignatureBundleBuf))
-	// 	oldSignatureBundleBytes := C.GoBytes(unsafe.Pointer(cOldSignatureBundleBuf), C.int(cOldSignatureBundleSize))
-	//
-	// 	var oldSignatureBundle *signature.Bundle
-	// 	if err := json.Unmarshal(oldSignatureBundleBytes, &oldSignatureBundle); err != nil {
-	// 		return fmt.Errorf("unmarshal old signature bundle: %w", err)
-	// 	}
-	//
-	// 	if err := signature.VerifyBundle(ctx, *oldSignatureBundle, string(hashBytes), rootCertRef); err != nil {
-	// 		if !errors.Is(err, rsa.ErrVerification) {
-	// 			return fmt.Errorf("verify old signature bundle, but with a new hash: %w", err)
-	// 		}
-	// 	} else {
-	// 		return nil
-	// 	}
-	// }
-
 	newSignatureBundle, err := signature.Sign(ctx, signerVerifier, string(hashBytes))
 	if err != nil {
 		return fmt.Errorf("sign bundle: %w", err)
@@ -175,11 +150,6 @@ func Verify(ctx context.Context, rootCertRef, path string) error {
 	if err := json.Unmarshal(signatureBundleBytes, &signatureBundle); err != nil {
 		return fmt.Errorf("unmarshal signature bundle: %w", err)
 	}
-
-	// TODO:
-	// if signatureBundle.ApiVersion != SignatureDataApiVersionV1 {
-	//     return fmt.Errorf("unsupported signature data API version: %s", signatureBundle.ApiVersion)
-	// }
 
 	if err := signature.VerifyBundle(ctx, *signatureBundle, string(hashBytes), rootCertRef); err != nil {
 		return fmt.Errorf("verify signature bundle: %w", err)
