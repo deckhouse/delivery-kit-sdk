@@ -5,7 +5,7 @@ package inhouse
 
 /*
 #cgo CFLAGS: -I../../../../c/lib/welf/include -I../../../../c/vendor/libelf/include
-#cgo LDFLAGS: -L../../../../c/lib -L../../../../c/vendor -l:welf.a -lelf -luv_a -lzstd -lz -lssl -lcrypto -ldl -lpthread -static
+#cgo LDFLAGS: -L../../../../c/lib -L../../../../c/vendor -l:welf.a -lelf -luv -lzstd -lz -lssl -lcrypto -ldl -lpthread -static
 #include <errno.h>
 #include <libelf.h>
 #include <openssl/sha.h>

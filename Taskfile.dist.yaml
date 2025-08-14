@@ -2,7 +2,7 @@ version: "3"
 
 vars:
   package: "github.com/deckhouse/delivery-kit-sdk"
-  
+
 tasks:
   lint:
     desc: 'Run all linters in parallel. Important vars: "paths".'
@@ -60,6 +60,10 @@ tasks:
           export DEBIAN_FRONTEND=noninteractive
           sudo apt-get -y update
           sudo apt-get install -y build-essential libuv1-dev libzstd-dev zlib1g-dev libssl-dev cmake
+
+          # If libuv has a legacy name, create a symlink
+          libuva_path="$(dpkg -L libuv1-dev | grep -F '/libuv_a.a')"
+          [[ -n "$libuva_path" ]] && ln -sr "$libuva_path" c/vendor/libuv.a
         else
           echo "Can't install C dependencies automatically, do it manually."
           exit 1
@@ -95,4 +99,4 @@ tasks:
   go:generate:
     desc: "Run go-generate."
     cmds:
-    - go generate ./...
+      - go generate ./...
