@@ -63,7 +63,7 @@ tasks:
 
           # If libuv has a legacy name, create a symlink
           libuva_path="$(dpkg -L libuv1-dev | grep -F '/libuv_a.a')"
-          [[ -n "$libuva_path" ]] && ln -sr "$libuva_path" c/vendor/libuv.a
+          [[ -n "$libuva_path" ]] && ln -fsr "$libuva_path" c/vendor/libuv.a
         else
           echo "Can't install C dependencies automatically, do it manually."
           exit 1
@@ -100,3 +100,11 @@ tasks:
     desc: "Run go-generate."
     cmds:
       - go generate ./...
+
+  install:c:
+    desc: "Install C libraries system-wide."
+    cmds:
+      - task: deps:install:c
+      - task: generate
+      - sudo cp -f c/vendor/libelf/libelf.a c/lib/welf.a /usr/local/lib/
+      - test -e "c/vendor/libuv.a" && sudo cp -f c/vendor/libuv.a /usr/local/lib/
