@@ -4,3 +4,4 @@
 *.o
 *.so
 /c/lib/welf/build
+.help
