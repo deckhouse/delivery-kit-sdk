@@ -19,9 +19,6 @@ jobs:
       - name: Install Task
         uses: arduino/setup-task@v2
 
-      - name: Install C dependencies
-        run: task -p deps:install:c
-
       - name: Install project dependencies
         run: task deps:install
 
