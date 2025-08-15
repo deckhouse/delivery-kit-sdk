@@ -115,7 +115,7 @@ func Sign(ctx context.Context, signerVerifier *signver.SignerVerifier, path stri
 	return nil
 }
 
-func Verify(ctx context.Context, rootCertRef, path string) error {
+func Verify(ctx context.Context, rootCertRefs []string, path string) error {
 	cPath := C.CString(path)
 	defer C.free(unsafe.Pointer(cPath))
 
@@ -151,7 +151,7 @@ func Verify(ctx context.Context, rootCertRef, path string) error {
 		return fmt.Errorf("unmarshal signature bundle: %w", err)
 	}
 
-	if err := signature.VerifyBundle(ctx, *signatureBundle, string(hashBytes), rootCertRef); err != nil {
+	if err := signature.VerifyBundle(ctx, *signatureBundle, string(hashBytes), rootCertRefs); err != nil {
 		return fmt.Errorf("verify signature bundle: %w", err)
 	}
 
