@@ -18,21 +18,19 @@ import (
 
 var _ = Describe("manifest", func() {
 	DescribeTable("sign and verify image manifest",
-		func(ctx SpecContext, keyType cert_utils.KeyType, noIntermediates, ExcludeRootFromIntermediates, useBase64Encoding bool) {
+		func(ctx SpecContext, keyType cert_utils.KeyType, noIntermediates, noRootInChain, useBase64Encoding bool) {
 			passFunc := cryptoutils.SkipPassword
 
 			certGen := cert_utils.GenerateCertificatesWithOptions(cert_utils.GenerateCertificatesOptions{
-				KeyType:                      keyType,
-				PassFunc:                     passFunc,
-				TmpDir:                       GinkgoT().TempDir(),
-				NoIntermediates:              noIntermediates,
-				ExcludeRootFromIntermediates: ExcludeRootFromIntermediates,
-				UseBase64Encoding:            useBase64Encoding,
+				KeyType:           keyType,
+				PassFunc:          passFunc,
+				TmpDir:            GinkgoT().TempDir(),
+				NoIntermediates:   noIntermediates,
+				NoRootInChain:     noRootInChain,
+				UseBase64Encoding: useBase64Encoding,
 			})
 
-			_, chainRef, err := signver.ConcatChain(certGen.IntermediatesRef, certGen.RootRef)
-			Expect(err).To(Succeed())
-			sv, err := signver.NewSignerVerifier(ctx, certGen.LeafRef, chainRef, signver.KeyOpts{
+			sv, err := signver.NewSignerVerifier(ctx, certGen.LeafRef, certGen.ChainRef, signver.KeyOpts{
 				KeyRef:   certGen.PrivRef,
 				PassFunc: passFunc,
 			})
@@ -57,10 +55,10 @@ var _ = Describe("manifest", func() {
 			false,
 		),
 		Entry(
-			"key_type=ECDSA_P256, without intermediates, root cert not in chain, certs are file paths",
+			"key_type=ECDSA_P256, without intermediates, root cert in chain, certs are file paths",
 			cert_utils.KeyType_ECDSA_P256,
 			true,
-			true,
+			false,
 			false,
 		),
 		// ----- key_type=ED25519, certs are file paths -----
@@ -79,10 +77,10 @@ var _ = Describe("manifest", func() {
 			false,
 		),
 		Entry(
-			"key_type=ED25519, without intermediates, root cert not in chain, certs are file paths",
+			"key_type=ED25519, without intermediates, root cert in chain, certs are file paths",
 			cert_utils.KeyType_ED25519,
 			true,
-			true,
+			false,
 			false,
 		),
 		// ----- key_type=ECDSA_P256, certs are base64 stings -----
@@ -101,10 +99,10 @@ var _ = Describe("manifest", func() {
 			true,
 		),
 		Entry(
-			"key_type=ECDSA_P256, without intermediates, root cert not in chain, certs are base64 stings",
+			"key_type=ECDSA_P256, without intermediates, root cert in chain, certs are base64 stings",
 			cert_utils.KeyType_ECDSA_P256,
 			true,
-			true,
+			false,
 			true,
 		),
 		// ----- key_type=KeyType_ED25519, certs are base64 stings -----
@@ -123,10 +121,10 @@ var _ = Describe("manifest", func() {
 			true,
 		),
 		Entry(
-			"key_type=ED25519, without intermediates, root cert not in chain, certs are base64 stings",
+			"key_type=ED25519, without intermediates, root cert in chain, certs are base64 stings",
 			cert_utils.KeyType_ED25519,
 			true,
-			true,
+			false,
 			true,
 		),
 	)

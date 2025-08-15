@@ -13,20 +13,18 @@ import (
 
 var _ = Describe("SignerVerifier", func() {
 	DescribeTable("should sign and verify",
-		func(ctx SpecContext, noIntermediates, ExcludeRootFromIntermediates, useBase64Encoding bool) {
+		func(ctx SpecContext, noIntermediates, noRootInChain, useBase64Encoding bool) {
 			passFunc := cryptoutils.SkipPassword
 
 			certGen := cert_utils.GenerateCertificatesWithOptions(cert_utils.GenerateCertificatesOptions{
-				PassFunc:                     passFunc,
-				TmpDir:                       GinkgoT().TempDir(),
-				NoIntermediates:              noIntermediates,
-				ExcludeRootFromIntermediates: ExcludeRootFromIntermediates,
-				UseBase64Encoding:            useBase64Encoding,
+				PassFunc:          passFunc,
+				TmpDir:            GinkgoT().TempDir(),
+				NoIntermediates:   noIntermediates,
+				NoRootInChain:     noRootInChain,
+				UseBase64Encoding: useBase64Encoding,
 			})
 
-			_, chainRef, err := signver.ConcatChain(certGen.IntermediatesRef, certGen.RootRef)
-			Expect(err).To(Succeed())
-			sv, err := signver.NewSignerVerifier(ctx, certGen.LeafRef, chainRef, signver.KeyOpts{
+			sv, err := signver.NewSignerVerifier(ctx, certGen.LeafRef, certGen.ChainRef, signver.KeyOpts{
 				PassFunc: passFunc,
 				KeyRef:   certGen.PrivRef,
 			})
@@ -54,9 +52,9 @@ var _ = Describe("SignerVerifier", func() {
 			false,
 		),
 		Entry(
-			"without intermediates, root cert not in chain, certs are file paths",
+			"without intermediates, root cert in chain, certs are file paths",
 			true,
-			true,
+			false,
 			false,
 		),
 		// ----- certs are base64 stings -----
@@ -73,9 +71,9 @@ var _ = Describe("SignerVerifier", func() {
 			true,
 		),
 		Entry(
-			"without intermediates, root cert not in chain, certs are base64 stings",
+			"without intermediates, root cert in chain, certs are base64 stings",
 			true,
-			true,
+			false,
 			true,
 		),
 	)

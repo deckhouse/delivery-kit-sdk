@@ -37,11 +37,10 @@ var _ = Describe("manifest", Serial, func() {
 			// https://developer.hashicorp.com/vault/docs/secrets/transit#bring-your-own-key-byok
 
 			certGen := cert_utils.GenerateCertificatesWithOptions(cert_utils.GenerateCertificatesOptions{
-				KeyType:                      keyType,
-				PassFunc:                     cryptoutils.SkipPassword,
-				TmpDir:                       tmpDir,
-				NoIntermediates:              true,
-				ExcludeRootFromIntermediates: true,
+				KeyType:         keyType,
+				PassFunc:        cryptoutils.SkipPassword,
+				TmpDir:          tmpDir,
+				NoIntermediates: true,
 			})
 
 			x509PKCS8Encoded, err := x509.MarshalPKCS8PrivateKey(certGen.PrivKey)
@@ -56,14 +55,11 @@ var _ = Describe("manifest", Serial, func() {
 
 			vaultServer.ImportTransitKey(ctx, vaultNamespace, vaultEndpoint, prvKeyAsn1DerFileName, vaultKeyType(keyType))
 
-			_, chainRef, err := signver.ConcatChain(certGen.IntermediatesRef, certGen.RootRef)
-			Expect(err).To(Succeed())
-
 			GinkgoT().Setenv("TRANSIT_SECRET_ENGINE_PATH", vaultNamespace)
 			GinkgoT().Setenv("VAULT_ADDR", vaultServer.Addr.String())
 			GinkgoT().Setenv("VAULT_TOKEN", vaultServer.RootToken)
 
-			sv, err := signver.NewSignerVerifier(ctx, certGen.LeafRef, chainRef, signver.KeyOpts{
+			sv, err := signver.NewSignerVerifier(ctx, certGen.LeafRef, certGen.ChainRef, signver.KeyOpts{
 				KeyRef:   fmt.Sprintf("hashivault://%s", vaultEndpoint),
 				PassFunc: cryptoutils.SkipPassword,
 			})
@@ -73,12 +69,12 @@ var _ = Describe("manifest", Serial, func() {
 			testVerify(ctx, manifest, certGen.RootRef)
 		},
 		Entry(
-			"ECDSA_P256 key, without intermediates, root cert not in chain, certs are file paths",
+			"ECDSA_P256 key, without intermediates, root cert in chain, certs are file paths",
 			cert_utils.KeyType_ECDSA_P256,
 		),
 		// TODO: we don't support ED25519 key type right now
 		XEntry(
-			"ED25519 key, without intermediates, root cert not in chain, certs are file paths",
+			"ED25519 key, without intermediates, root cert in chain, certs are file paths",
 			cert_utils.KeyType_ED25519,
 		),
 	)
