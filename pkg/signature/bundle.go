@@ -13,9 +13,10 @@ import (
 )
 
 var (
-	ErrNoSignature  = errors.New("no signature")
-	ErrNoCert       = errors.New("no cert")
-	ErrCertRequired = errors.New("cert required")
+	ErrNoSignature      = errors.New("no signature")
+	ErrNoCert           = errors.New("no cert")
+	ErrCertRequired     = errors.New("cert required")
+	ErrRootCertRequired = errors.New("root cert required")
 )
 
 type Base64Bytes []byte
@@ -103,14 +104,9 @@ func Sign(_ context.Context, sv *signver.SignerVerifier, payload string) (Bundle
 	}, nil
 }
 
-func VerifyBundle(ctx context.Context, bundle Bundle, payload, rootCertRef string) error {
-	_, chainRef, err := signver.ConcatChain(bundle.Chain.Base64String(), rootCertRef)
-	if err != nil {
-		return fmt.Errorf("building certificate chain: %w", err)
-	}
-
-	if _, _, err := signver.VerifyChain(bundle.Cert.Base64String(), chainRef); err != nil {
-		return fmt.Errorf("cert verification: %w", err)
+func VerifyBundle(ctx context.Context, bundle Bundle, payload string, rootCertRefs []string) error {
+	if err := verifyChainWithAnyRoot(bundle.Cert.Base64String(), bundle.Chain.Base64String(), rootCertRefs); err != nil {
+		return fmt.Errorf("verifying chain: %w", err)
 	}
 
 	verifier, err := signver.NewVerifierFromCert(ctx, bundle.Cert.Base64String())
@@ -126,4 +122,28 @@ func VerifyBundle(ctx context.Context, bundle Bundle, payload, rootCertRef strin
 	}
 
 	return nil
+}
+
+// verifyChainWithAnyRoot checks chain verification with any root certificate
+func verifyChainWithAnyRoot(certRef, chainRef string, rootRefs []string) error {
+	if len(rootRefs) == 0 {
+		return ErrRootCertRequired
+	}
+
+	verificationErrors := make([]error, 0, len(rootRefs))
+
+	for i, rootRef := range rootRefs {
+		_, newChainRef, err := signver.ConcatChain(chainRef, rootRef)
+		if err != nil {
+			return fmt.Errorf("building certificate chain[%d]: %w", i, err)
+		}
+
+		if _, _, err = signver.VerifyChain(certRef, newChainRef); err != nil {
+			verificationErrors = append(verificationErrors, fmt.Errorf("chain verification[%d]: %w", i, err))
+		} else {
+			return nil
+		}
+	}
+
+	return errors.Join(verificationErrors...)
 }

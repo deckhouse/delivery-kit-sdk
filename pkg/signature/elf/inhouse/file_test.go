@@ -85,7 +85,7 @@ var _ = Describe("signature/elf/custom", func() {
 
 	DescribeTable("should verify signature",
 		func(ctx SpecContext) {
-			Expect(inhouse.Verify(ctx, cert_utils.RootCABase64, helloElfFileWithSignature)).To(Succeed())
+			Expect(inhouse.Verify(ctx, []string{cert_utils.RootCABase64}, helloElfFileWithSignature)).To(Succeed())
 		},
 		Entry(
 			"with x509 certs",
@@ -94,7 +94,7 @@ var _ = Describe("signature/elf/custom", func() {
 
 	DescribeTable("should fail to verify signature because wrong signature",
 		func(ctx SpecContext) {
-			Expect(inhouse.Verify(ctx, cert_utils.RootCABase64, helloElfFileWithOutdatedSignature)).To(HaveOccurred())
+			Expect(inhouse.Verify(ctx, []string{cert_utils.RootCABase64}, helloElfFileWithOutdatedSignature)).To(HaveOccurred())
 		},
 		Entry(
 			"with x509 certs",
@@ -103,7 +103,7 @@ var _ = Describe("signature/elf/custom", func() {
 
 	DescribeTable("should fail to verify signature because no signature",
 		func(ctx SpecContext) {
-			Expect(inhouse.Verify(ctx, cert_utils.RootCABase64, helloElfFile)).To(HaveOccurred())
+			Expect(inhouse.Verify(ctx, []string{cert_utils.RootCABase64}, helloElfFile)).To(HaveOccurred())
 		},
 		Entry(
 			"with x509 certs",
@@ -112,7 +112,7 @@ var _ = Describe("signature/elf/custom", func() {
 
 	DescribeTable("should fail to verify non-elf file",
 		func(ctx SpecContext) {
-			Expect(inhouse.Verify(ctx, cert_utils.RootCABase64, helloTxtFile)).To(Equal(elf.ErrNotELF))
+			Expect(inhouse.Verify(ctx, []string{cert_utils.RootCABase64}, helloTxtFile)).To(Equal(elf.ErrNotELF))
 		},
 		Entry(
 			"with x509 certs",

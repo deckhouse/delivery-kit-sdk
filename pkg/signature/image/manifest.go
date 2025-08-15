@@ -34,7 +34,7 @@ func GetSignatureAnnotationsForImageManifest(ctx context.Context, sv *signver.Si
 	return annotations, nil
 }
 
-func VerifyImageManifestSignature(ctx context.Context, rootCertRef string, manifest *v1.Manifest) error {
+func VerifyImageManifestSignature(ctx context.Context, rootCertRefs []string, manifest *v1.Manifest) error {
 	bundle, err := signature.NewBundleFromMap(manifest.Annotations)
 	if err != nil {
 		return fmt.Errorf("signature bundle creation: %w", err)
@@ -45,7 +45,7 @@ func VerifyImageManifestSignature(ctx context.Context, rootCertRef string, manif
 		return fmt.Errorf("getting manifest payload hash: %w", err)
 	}
 
-	if err = signature.VerifyBundle(ctx, bundle, payload, rootCertRef); err != nil {
+	if err = signature.VerifyBundle(ctx, bundle, payload, rootCertRefs); err != nil {
 		return fmt.Errorf("bundle verification: %w", err)
 	}
 
