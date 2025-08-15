@@ -108,3 +108,4 @@ tasks:
       - task: generate
       - sudo cp -f c/vendor/libelf/libelf.a c/lib/welf.a /usr/local/lib/
       - test -e "c/vendor/libuv.a" && sudo cp -Pf c/vendor/libuv.a /usr/local/lib/
+      - sudo cp -f c/vendor/libelf/include/*.h c/lib/welf/include/*.h /usr/local/include/
