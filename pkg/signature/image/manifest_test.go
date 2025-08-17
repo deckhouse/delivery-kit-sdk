@@ -37,7 +37,7 @@ var _ = Describe("manifest", func() {
 			Expect(err).To(Succeed())
 
 			manifest := testSign(ctx, sv)
-			testVerify(ctx, manifest, certGen.RootRef)
+			testVerify(ctx, manifest, []string{certGen.RootRef})
 		},
 		// ----- key_type=ECDSA_P256, certs are file paths -----
 		Entry(
@@ -128,6 +128,40 @@ var _ = Describe("manifest", func() {
 			true,
 		),
 	)
+
+	DescribeTable("verify image manifest with several different root certificates",
+		func(ctx SpecContext, generationCount, generationSelectionIndex int) {
+			passFunc := cryptoutils.SkipPassword
+
+			certGens := make([]cert_utils.GenerateCertificatesResult, generationCount)
+			rootRefs := make([]string, generationCount)
+
+			for i := 0; i < generationCount; i++ {
+				certGens[i] = cert_utils.GenerateCertificatesWithOptions(cert_utils.GenerateCertificatesOptions{
+					PassFunc:      passFunc,
+					TmpDir:        GinkgoT().TempDir(),
+					NoRootInChain: true,
+				})
+				rootRefs[i] = certGens[i].RootRef
+			}
+
+			selectedCertGen := certGens[generationSelectionIndex]
+
+			sv, err := signver.NewSignerVerifier(ctx, selectedCertGen.LeafRef, selectedCertGen.ChainRef, signver.KeyOpts{
+				KeyRef:   selectedCertGen.PrivRef,
+				PassFunc: passFunc,
+			})
+			Expect(err).To(Succeed())
+
+			manifest := testSign(ctx, sv)
+			testVerify(ctx, manifest, rootRefs)
+		},
+		Entry(
+			"with generation_count=3, generation_selection_index=1",
+			3,
+			1,
+		),
+	)
 })
 
 func testSign(ctx context.Context, sv *signver.SignerVerifier) *v1.Manifest {
@@ -153,7 +187,7 @@ func testSign(ctx context.Context, sv *signver.SignerVerifier) *v1.Manifest {
 	return manifest
 }
 
-func testVerify(ctx context.Context, manifest *v1.Manifest, rootRef string) {
-	err := image.VerifyImageManifestSignature(ctx, rootRef, manifest)
+func testVerify(ctx context.Context, manifest *v1.Manifest, rootRefs []string) {
+	err := image.VerifyImageManifestSignature(ctx, rootRefs, manifest)
 	Expect(err).To(Succeed())
 }

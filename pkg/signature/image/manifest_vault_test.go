@@ -66,7 +66,7 @@ var _ = Describe("manifest", Serial, func() {
 			Expect(err).To(Succeed())
 
 			manifest := testSign(ctx, sv)
-			testVerify(ctx, manifest, certGen.RootRef)
+			testVerify(ctx, manifest, []string{certGen.RootRef})
 		},
 		Entry(
 			"ECDSA_P256 key, without intermediates, root cert in chain, certs are file paths",
@@ -98,7 +98,7 @@ var _ = Describe("manifest", Serial, func() {
 				return
 			}
 
-			testVerify(ctx, manifest, rootRef)
+			testVerify(ctx, manifest, []string{rootRef})
 		},
 		Entry(
 			"should sign image manifest using ED25519 key",
