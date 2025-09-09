@@ -109,7 +109,7 @@ func Sign(ctx context.Context, signerVerifier *signver.SignerVerifier, path stri
 	defer C.free(cNewSignatureBundleBytes)
 
 	if code := C.welf_save_elf_signature_via_objcopy(cElf, cNewSignatureBundleBytes, C.size_t(len(newSignatureBundleBytes)), cPath); code < 0 {
-		return fmt.Errorf("saving ELF signature failed: %s", C.GoString(C.go_errmsg()))
+		return fmt.Errorf("saving ELF signature failed: %s", C.GoString(C.welf_errmsg()))
 	}
 
 	return nil
