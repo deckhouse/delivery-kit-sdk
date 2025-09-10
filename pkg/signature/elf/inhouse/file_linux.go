@@ -112,9 +112,17 @@ func Sign(ctx context.Context, signerVerifier *signver.SignerVerifier, path stri
 		return fmt.Errorf("saving ELF signature failed: %s", C.GoString(C.welf_errmsg()))
 	}
 
+	cUpdFile, cUpdElf, err := initELF(cPath)
+	if err != nil {
+		return err
+	}
+	defer C.elf_end(cUpdElf)
+	defer C.fclose(cUpdFile)
+
 	var cUpdatedHashBuf *C.char
 	var cUpdatedHashSize C.size_t
-	if C.welf_compute_elf_hash(cElf, &cUpdatedHashBuf, &cUpdatedHashSize) < 0 {
+
+	if C.welf_compute_elf_hash(cUpdElf, &cUpdatedHashBuf, &cUpdatedHashSize) < 0 {
 		return fmt.Errorf("compute updated elf hash failed: %s", C.GoString(C.welf_errmsg()))
 	}
 	defer C.free(unsafe.Pointer(cUpdatedHashBuf))
@@ -122,16 +130,6 @@ func Sign(ctx context.Context, signerVerifier *signver.SignerVerifier, path stri
 	// If second signature computation/saving will produce a different binary, then
 	// do it. It'll help with rare non-idempotent signs.
 	if C.GoString(cNewHashBuf) != C.GoString(cUpdatedHashBuf) {
-		C.elf_end(cElf)
-		C.fclose(cFile)
-
-		cFile, cElf, err = initELF(cPath)
-		if err != nil {
-			return err
-		}
-		defer C.elf_end(cElf)
-		defer C.fclose(cFile)
-
 		updatedHashBytes := C.GoBytes(unsafe.Pointer(cUpdatedHashBuf), C.int(cUpdatedHashSize))
 		updatedSignatureBundle, err := signature.Sign(ctx, signerVerifier, string(updatedHashBytes))
 		if err != nil {
@@ -146,7 +144,7 @@ func Sign(ctx context.Context, signerVerifier *signver.SignerVerifier, path stri
 		cUpdatedSignatureBundleBytes := unsafe.Pointer(C.CBytes(updatedSignatureBundleBytes))
 		defer C.free(cUpdatedSignatureBundleBytes)
 
-		if code := C.welf_save_elf_signature_via_objcopy(cElf, cUpdatedSignatureBundleBytes, C.size_t(len(updatedSignatureBundleBytes)), cPath); code < 0 {
+		if code := C.welf_save_elf_signature_via_objcopy(cUpdElf, cUpdatedSignatureBundleBytes, C.size_t(len(updatedSignatureBundleBytes)), cPath); code < 0 {
 			return fmt.Errorf("saving updated ELF signature failed: %s", C.GoString(C.welf_errmsg()))
 		}
 	}
