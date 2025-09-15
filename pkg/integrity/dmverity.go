@@ -34,6 +34,7 @@ func GetRootHashAnnotationsForImage(ctx context.Context, img v1.Image) (map[stri
 
 	return map[string]string{
 		annoNameDMVerityRootHash: rootHash,
+		annoNameBuildTimestamp:   staticMkfsBuildTimestamp,
 	}, nil
 }
 
