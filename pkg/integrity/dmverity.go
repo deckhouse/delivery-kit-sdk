@@ -23,6 +23,20 @@ const (
 	magicVeritySalt          = "dc0f616e4bf75776061d5ffb7a6f45e1313b7cc86f3aa49b68de4f6d187bad2b"
 )
 
+func AnnotateImageWithDMVerityRootHash(ctx context.Context, img v1.Image) (v1.Image, error) {
+	rc := mutate.Extract(img)
+	defer rc.Close()
+
+	rootHash, err := CalculateDMVerityRootHash(ctx, rc)
+	if err != nil {
+		return nil, err
+	}
+
+	return mutate.Annotations(img, map[string]string{
+		annoNameDMVerityRootHash: rootHash,
+	}).(v1.Image), nil
+}
+
 func AnnotateLayerWithDMVerityRootHash(ctx context.Context, layer v1.Layer) (mutate.Addendum, error) {
 	rc, err := layer.Uncompressed()
 	if err != nil {
