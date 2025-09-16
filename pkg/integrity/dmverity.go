@@ -16,32 +16,52 @@ import (
 )
 
 const (
-	annoNameBuildTimestamp   = "io.deckhouse.delivery-kit.build-timestamp"
-	annoNameDMVerityRootHash = "io.deckhouse.delivery-kit.dm-verity-root-hash"
+	AnnoNameBuildTimestamp   = "io.deckhouse.delivery-kit.build-timestamp"
+	AnnoNameDMVerityRootHash = "io.deckhouse.delivery-kit.dm-verity-root-hash"
 
 	staticMkfsBuildTimestamp = "1750791050" // 2025-06-24T18:50:50Z
 	magicVeritySalt          = "dc0f616e4bf75776061d5ffb7a6f45e1313b7cc86f3aa49b68de4f6d187bad2b"
 )
 
-func AnnotateLayerWithDMVerityRootHash(ctx context.Context, layer v1.Layer) (mutate.Addendum, error) {
+func CalculateImageDMVerityAnnotations(ctx context.Context, img v1.Image) (map[string]string, error) {
+	rootHash, err := CalculateImageDMVerityRootHash(ctx, img)
+	if err != nil {
+		return nil, err
+	}
+
+	return map[string]string{
+		AnnoNameBuildTimestamp:   staticMkfsBuildTimestamp,
+		AnnoNameDMVerityRootHash: rootHash,
+	}, nil
+}
+
+func CalculateLayerDMVerityAnnotations(ctx context.Context, layer v1.Layer) (map[string]string, error) {
+	rootHash, err := CalculateLayerDMVerityRootHash(ctx, layer)
+	if err != nil {
+		return nil, err
+	}
+
+	return map[string]string{
+		AnnoNameBuildTimestamp:   staticMkfsBuildTimestamp,
+		AnnoNameDMVerityRootHash: rootHash,
+	}, nil
+}
+
+func CalculateImageDMVerityRootHash(ctx context.Context, img v1.Image) (string, error) {
+	rc := mutate.Extract(img)
+	defer rc.Close()
+
+	return CalculateDMVerityRootHash(ctx, rc)
+}
+
+func CalculateLayerDMVerityRootHash(ctx context.Context, layer v1.Layer) (string, error) {
 	rc, err := layer.Uncompressed()
 	if err != nil {
-		return mutate.Addendum{}, fmt.Errorf("get uncompressed layer: %w", err)
+		return "", fmt.Errorf("get uncompressed layer: %w", err)
 	}
 	defer rc.Close()
 
-	rootHash, err := CalculateDMVerityRootHash(ctx, rc)
-	if err != nil {
-		return mutate.Addendum{}, err
-	}
-
-	return mutate.Addendum{
-		Layer: layer,
-		Annotations: map[string]string{
-			annoNameBuildTimestamp:   staticMkfsBuildTimestamp,
-			annoNameDMVerityRootHash: rootHash,
-		},
-	}, nil
+	return CalculateDMVerityRootHash(ctx, rc)
 }
 
 func CalculateDMVerityRootHash(ctx context.Context, rc io.Reader) (string, error) {
