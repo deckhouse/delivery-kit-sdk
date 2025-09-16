@@ -24,24 +24,7 @@ const (
 )
 
 func CalculateImageDMVerityAnnotations(ctx context.Context, img v1.Image) (map[string]string, error) {
-	rc := mutate.Extract(img)
-	defer rc.Close()
-
-	return calculateAnnotationsFromStream(ctx, rc)
-}
-
-func CalculateLayerDMVerityAnnotations(ctx context.Context, layer v1.Layer) (map[string]string, error) {
-	rc, err := layer.Uncompressed()
-	if err != nil {
-		return nil, err
-	}
-	defer rc.Close()
-
-	return calculateAnnotationsFromStream(ctx, rc)
-}
-
-func calculateAnnotationsFromStream(ctx context.Context, rc io.ReadCloser) (map[string]string, error) {
-	rootHash, err := CalculateDMVerityRootHash(ctx, rc)
+	rootHash, err := CalculateImageDMVerityRootHash(ctx, img)
 	if err != nil {
 		return nil, err
 	}
@@ -50,6 +33,35 @@ func calculateAnnotationsFromStream(ctx context.Context, rc io.ReadCloser) (map[
 		AnnoNameBuildTimestamp:   staticMkfsBuildTimestamp,
 		AnnoNameDMVerityRootHash: rootHash,
 	}, nil
+}
+
+func CalculateLayerDMVerityAnnotations(ctx context.Context, layer v1.Layer) (map[string]string, error) {
+	rootHash, err := CalculateLayerDMVerityRootHash(ctx, layer)
+	if err != nil {
+		return nil, err
+	}
+
+	return map[string]string{
+		AnnoNameBuildTimestamp:   staticMkfsBuildTimestamp,
+		AnnoNameDMVerityRootHash: rootHash,
+	}, nil
+}
+
+func CalculateImageDMVerityRootHash(ctx context.Context, img v1.Image) (string, error) {
+	rc := mutate.Extract(img)
+	defer rc.Close()
+
+	return CalculateDMVerityRootHash(ctx, rc)
+}
+
+func CalculateLayerDMVerityRootHash(ctx context.Context, layer v1.Layer) (string, error) {
+	rc, err := layer.Uncompressed()
+	if err != nil {
+		return "", err
+	}
+	defer rc.Close()
+
+	return CalculateDMVerityRootHash(ctx, rc)
 }
 
 func CalculateDMVerityRootHash(ctx context.Context, rc io.Reader) (string, error) {
