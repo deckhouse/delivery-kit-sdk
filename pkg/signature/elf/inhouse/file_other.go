@@ -13,6 +13,6 @@ func Sign(ctx context.Context, signerVerifier *signver.SignerVerifier, path stri
 	panic("not implemented on this platform")
 }
 
-func Verify(ctx context.Context, rootCert, path string) error {
+func Verify(ctx context.Context, rootCertRefs []string, path string) error {
 	panic("not implemented on this platform")
 }
