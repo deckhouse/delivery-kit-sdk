@@ -57,7 +57,7 @@ func CalculateImageDMVerityRootHash(ctx context.Context, img v1.Image) (string, 
 func CalculateLayerDMVerityRootHash(ctx context.Context, layer v1.Layer) (string, error) {
 	rc, err := layer.Uncompressed()
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("get uncompressed layer: %w", err)
 	}
 	defer rc.Close()
 
