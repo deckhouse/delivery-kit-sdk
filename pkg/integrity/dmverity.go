@@ -16,46 +16,39 @@ import (
 )
 
 const (
-	annoNameBuildTimestamp   = "io.deckhouse.delivery-kit.build-timestamp"
-	annoNameDMVerityRootHash = "io.deckhouse.delivery-kit.dm-verity-root-hash"
+	AnnoNameBuildTimestamp   = "io.deckhouse.delivery-kit.build-timestamp"
+	AnnoNameDMVerityRootHash = "io.deckhouse.delivery-kit.dm-verity-root-hash"
 
 	staticMkfsBuildTimestamp = "1750791050" // 2025-06-24T18:50:50Z
 	magicVeritySalt          = "dc0f616e4bf75776061d5ffb7a6f45e1313b7cc86f3aa49b68de4f6d187bad2b"
 )
 
-func GetRootHashAnnotationsForImage(ctx context.Context, img v1.Image) (map[string]string, error) {
+func CalculateImageDMVerityAnnotations(ctx context.Context, img v1.Image) (map[string]string, error) {
 	rc := mutate.Extract(img)
 	defer rc.Close()
 
+	return calculateAnnotationsFromStream(ctx, rc)
+}
+
+func CalculateLayerDMVerityAnnotations(ctx context.Context, layer v1.Layer) (map[string]string, error) {
+	rc, err := layer.Uncompressed()
+	if err != nil {
+		return nil, err
+	}
+	defer rc.Close()
+
+	return calculateAnnotationsFromStream(ctx, rc)
+}
+
+func calculateAnnotationsFromStream(ctx context.Context, rc io.ReadCloser) (map[string]string, error) {
 	rootHash, err := CalculateDMVerityRootHash(ctx, rc)
 	if err != nil {
 		return nil, err
 	}
 
 	return map[string]string{
-		annoNameDMVerityRootHash: rootHash,
-		annoNameBuildTimestamp:   staticMkfsBuildTimestamp,
-	}, nil
-}
-
-func AnnotateLayerWithDMVerityRootHash(ctx context.Context, layer v1.Layer) (mutate.Addendum, error) {
-	rc, err := layer.Uncompressed()
-	if err != nil {
-		return mutate.Addendum{}, fmt.Errorf("get uncompressed layer: %w", err)
-	}
-	defer rc.Close()
-
-	rootHash, err := CalculateDMVerityRootHash(ctx, rc)
-	if err != nil {
-		return mutate.Addendum{}, err
-	}
-
-	return mutate.Addendum{
-		Layer: layer,
-		Annotations: map[string]string{
-			annoNameBuildTimestamp:   staticMkfsBuildTimestamp,
-			annoNameDMVerityRootHash: rootHash,
-		},
+		AnnoNameBuildTimestamp:   staticMkfsBuildTimestamp,
+		AnnoNameDMVerityRootHash: rootHash,
 	}, nil
 }
 
