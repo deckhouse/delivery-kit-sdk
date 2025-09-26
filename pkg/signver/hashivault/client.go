@@ -23,16 +23,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"os"
-	"path/filepath"
-	"regexp"
 	"strconv"
-	"time"
 
 	vault "github.com/hashicorp/vault/api"
 	"github.com/jellydator/ttlcache/v3"
-	"github.com/mitchellh/go-homedir"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"github.com/sigstore/sigstore/pkg/signature"
 )
@@ -43,46 +38,16 @@ type hashivaultClient struct {
 	transitSecretEnginePath string
 	keyCache                *ttlcache.Cache[string, crypto.PublicKey]
 	keyVersion              uint64
-	tokenTTL                time.Duration
+	auth                    authenticator
 }
-
-var (
-	errReference   = errors.New("kms specification should be in the format hashivault://<key>")
-	referenceRegex = regexp.MustCompile(`^hashivault://(?P<path>\w(([\w-.]+)?\w)?)$`)
-	prefixRegex    = regexp.MustCompile("^vault:v[0-9]+:")
-)
 
 const (
-	vaultV1DataPrefix = "vault:v1:"
-
 	// use a consistent key for cache lookups
 	cacheKey = "signer"
-
-	// ReferenceScheme schemes for various KMS services are copied from https://github.com/google/go-cloud/tree/master/secrets
-	ReferenceScheme = "hashivault://"
 )
 
-// ValidReference returns a non-nil error if the reference string is invalid
-func ValidReference(ref string) error {
-	if !referenceRegex.MatchString(ref) {
-		return errReference
-	}
-	return nil
-}
-
-func parseReference(resourceID string) (keyPath string, err error) {
-	i := referenceRegex.SubexpIndex("path")
-	v := referenceRegex.FindStringSubmatch(resourceID)
-	if len(v) < i+1 {
-		err = fmt.Errorf("invalid vault format %q: %w", resourceID, err)
-		return
-	}
-	keyPath = v[i]
-	return
-}
-
 func newHashivaultClient(address, token, transitSecretEnginePath, keyResourceID string, keyVersion uint64) (*hashivaultClient, error) {
-	if err := ValidReference(keyResourceID); err != nil {
+	if err := validReference(keyResourceID); err != nil {
 		return nil, err
 	}
 
@@ -91,11 +56,8 @@ func newHashivaultClient(address, token, transitSecretEnginePath, keyResourceID 
 		return nil, err
 	}
 
-	if address == "" {
-		address = os.Getenv("VAULT_ADDR")
-	}
-	if address == "" {
-		return nil, errors.New("VAULT_ADDR is not set")
+	if address, err = getVaultAddress(address); err != nil {
+		return nil, err
 	}
 
 	client, err := vault.NewClient(&vault.Config{
@@ -105,135 +67,40 @@ func newHashivaultClient(address, token, transitSecretEnginePath, keyResourceID 
 		return nil, fmt.Errorf("new vault client: %w", err)
 	}
 
-	var tokenID string
-	var tokenTTL time.Duration
-
+	var auth authenticator
 	if roleID, secretID := os.Getenv("VAULT_ROLE_ID"), os.Getenv("VAULT_SECRET_ID"); roleID != "" && secretID != "" {
-		tokenID, tokenTTL, err = deckhouseAuth(client, roleID, secretID)
-		if err != nil {
-			return nil, fmt.Errorf("deckhouse auth: %w", err)
-		}
-		client.SetToken(tokenID)
+		auth = newAppRoleAuthenticator("ar", roleID, secretID)
+	} else if jwtToken := os.Getenv("VAULT_JWT_TOKEN"); jwtToken != "" {
+		auth = newJWTAuthenticator("jwt", jwtToken, os.Getenv("VAULT_JWT_ROLE"))
 	} else {
-		tokenID, tokenTTL, err = sigstoreAuth(token)
-		if err != nil {
-			return nil, fmt.Errorf("sigstore auth: %w", err)
+		if token, err = getVaultToken(token); err != nil {
+			return nil, err
 		}
-		client.SetToken(tokenID)
-	}
-
-	if transitSecretEnginePath == "" {
-		transitSecretEnginePath = os.Getenv("TRANSIT_SECRET_ENGINE_PATH")
-	}
-	if transitSecretEnginePath == "" {
-		transitSecretEnginePath = "transit"
+		auth = newStaticAuthProvider(token)
 	}
 
 	hvClient := &hashivaultClient{
 		client:                  client,
 		keyPath:                 keyPath,
-		transitSecretEnginePath: transitSecretEnginePath,
+		transitSecretEnginePath: getVaultTransitSecretEnginePath(transitSecretEnginePath),
 		keyCache: ttlcache.New[string, crypto.PublicKey](
 			ttlcache.WithDisableTouchOnHit[string, crypto.PublicKey](),
 		),
 		keyVersion: keyVersion,
-		tokenTTL:   tokenTTL,
+		auth:       auth,
 	}
 
 	return hvClient, nil
-}
-
-func deckhouseAuth(client *vault.Client, roleID, secretID string) (string, time.Duration, error) {
-	fullpath := "auth/ar/login"
-
-	loginData := map[string]interface{}{
-		"role_id":   roleID,
-		"secret_id": secretID,
-	}
-
-	resp, err := client.Logical().Write(fullpath, loginData)
-	if err != nil {
-		return "", 0, fmt.Errorf("vault write: %w", err)
-	}
-
-	tokenID, err := resp.TokenID()
-	if err != nil {
-		return "", 0, fmt.Errorf("getting auth token id: %w", err)
-	}
-	tokenTTL, err := resp.TokenTTL()
-	if err != nil {
-		return "", 0, fmt.Errorf("getting auth token TTL: %w", err)
-	}
-
-	watcher, err := client.NewLifetimeWatcher(&vault.LifetimeWatcherInput{
-		Secret: resp,
-	})
-	if err != nil {
-		return "", 0, fmt.Errorf("vault auth watcher: %w", err)
-	}
-	go watcher.Start()
-	// watcher.Stop() when?
-
-	return tokenID, tokenTTL, nil
-}
-
-func sigstoreAuth(token string) (string, time.Duration, error) {
-	if token == "" {
-		token = os.Getenv("VAULT_TOKEN")
-	}
-
-	if token == "" {
-		log.Printf("VAULT_TOKEN is not set, trying to read token from file at path ~/.vault-token")
-		homeDir, err := homedir.Dir()
-		if err != nil {
-			return "", 0, fmt.Errorf("get home directory: %w", err)
-		}
-
-		tokenFromFile, err := os.ReadFile(filepath.Join(homeDir, ".vault-token"))
-		if err != nil {
-			return "", 0, fmt.Errorf("read .vault-token file: %w", err)
-		}
-
-		token = string(tokenFromFile)
-	}
-
-	return token, 300 * time.Second, nil
-}
-
-func oidcLogin(_ context.Context, address, path, role, token string) (string, error) {
-	if address == "" {
-		address = os.Getenv("VAULT_ADDR")
-	}
-	if address == "" {
-		return "", errors.New("VAULT_ADDR is not set")
-	}
-	if path == "" {
-		path = "jwt"
-	}
-
-	client, err := vault.NewClient(&vault.Config{
-		Address: address,
-	})
-	if err != nil {
-		return "", fmt.Errorf("new vault client: %w", err)
-	}
-
-	loginData := map[string]interface{}{
-		"role": role,
-		"jwt":  token,
-	}
-	fullpath := fmt.Sprintf("auth/%s/login", path)
-	resp, err := client.Logical().Write(fullpath, loginData)
-	if err != nil {
-		return "", fmt.Errorf("vault oidc login: %w", err)
-	}
-	return resp.TokenID()
 }
 
 func (h *hashivaultClient) fetchPublicKey(_ context.Context) (crypto.PublicKey, error) {
 	client := h.client.Logical()
 
 	path := fmt.Sprintf("/%s/keys/%s", h.transitSecretEnginePath, h.keyPath)
+
+	if err := h.auth.Login(h.client); err != nil {
+		return nil, fmt.Errorf("failed to authenticate: %w", err)
+	}
 
 	keyResult, err := client.Read(path)
 	if err != nil {
@@ -290,7 +157,7 @@ func (h *hashivaultClient) public() (crypto.PublicKey, error) {
 			var pubkey crypto.PublicKey
 			pubkey, lerr = h.fetchPublicKey(context.Background())
 			if lerr == nil {
-				item := c.Set(key, pubkey, h.tokenTTL)
+				item := c.Set(key, pubkey, h.auth.TokenTTL())
 				return item
 			}
 			return nil
@@ -309,7 +176,7 @@ func (h *hashivaultClient) public() (crypto.PublicKey, error) {
 	return item.Value(), nil
 }
 
-func (h hashivaultClient) sign(digest []byte, alg crypto.Hash, opts ...signature.SignOption) ([]byte, error) {
+func (h *hashivaultClient) sign(digest []byte, alg crypto.Hash, opts ...signature.SignOption) ([]byte, error) {
 	client := h.client.Logical()
 
 	keyVersion := fmt.Sprintf("%d", h.keyVersion)
@@ -323,6 +190,10 @@ func (h hashivaultClient) sign(digest []byte, alg crypto.Hash, opts ...signature
 		if _, err := strconv.ParseUint(keyVersion, 10, 64); err != nil {
 			return nil, fmt.Errorf("parsing requested key version: %w", err)
 		}
+	}
+
+	if err := h.auth.Login(h.client); err != nil {
+		return nil, fmt.Errorf("failed to authenticate: %w", err)
 	}
 
 	signResult, err := client.Write(fmt.Sprintf("/%s/sign/%s%s", h.transitSecretEnginePath, h.keyPath, hashString(alg)), map[string]interface{}{
@@ -343,7 +214,7 @@ func (h hashivaultClient) sign(digest []byte, alg crypto.Hash, opts ...signature
 	return vaultDecode(encodedSignature, keyVersionUsedPtr)
 }
 
-func (h hashivaultClient) verify(sig, digest []byte, alg crypto.Hash, opts ...signature.VerifyOption) error {
+func (h *hashivaultClient) verify(sig, digest []byte, alg crypto.Hash, opts ...signature.VerifyOption) error {
 	client := h.client.Logical()
 	encodedSig := base64.StdEncoding.EncodeToString(sig)
 
@@ -352,26 +223,13 @@ func (h hashivaultClient) verify(sig, digest []byte, alg crypto.Hash, opts ...si
 		opt.ApplyKeyVersion(&keyVersion)
 	}
 
-	var vaultDataPrefix string
-	if keyVersion != "" {
-		// keyVersion >= 1 on verification but can be set to 0 on signing
-		kvUint, err := strconv.ParseUint(keyVersion, 10, 64)
-		if err != nil {
-			return fmt.Errorf("parsing requested key version: %w", err)
-		} else if kvUint == 0 {
-			return errors.New("key version must be >= 1")
-		}
+	vaultDataPrefix, err := determineVaultDataPrefix(keyVersion, h.keyVersion)
+	if err != nil {
+		return err
+	}
 
-		vaultDataPrefix = fmt.Sprintf("vault:v%d:", kvUint)
-	} else {
-		vaultDataPrefix = os.Getenv("VAULT_KEY_PREFIX")
-		if vaultDataPrefix == "" {
-			if h.keyVersion > 0 {
-				vaultDataPrefix = fmt.Sprintf("vault:v%d:", h.keyVersion)
-			} else {
-				vaultDataPrefix = vaultV1DataPrefix
-			}
-		}
+	if err = h.auth.Login(h.client); err != nil {
+		return fmt.Errorf("failed to authenticate: %w", err)
 	}
 
 	result, err := client.Write(fmt.Sprintf("/%s/verify/%s/%s", h.transitSecretEnginePath, h.keyPath, hashString(alg)), map[string]interface{}{
@@ -400,38 +258,12 @@ func (h hashivaultClient) verify(sig, digest []byte, alg crypto.Hash, opts ...si
 	return nil
 }
 
-// Vault likes to prefix base64 data with a version prefix
-func vaultDecode(data interface{}, keyVersionUsed *string) ([]byte, error) {
-	encoded, ok := data.(string)
-	if !ok {
-		return nil, errors.New("received non-string data")
-	}
-
-	if keyVersionUsed != nil {
-		*keyVersionUsed = prefixRegex.FindString(encoded)
-	}
-	return base64.StdEncoding.DecodeString(prefixRegex.ReplaceAllString(encoded, ""))
-}
-
-func hashString(h crypto.Hash) string {
-	var hashStr string
-	switch h {
-	case crypto.SHA224:
-		hashStr = "/sha2-224"
-	case crypto.SHA256:
-		hashStr = "/sha2-256"
-	case crypto.SHA384:
-		hashStr = "/sha2-384"
-	case crypto.SHA512:
-		hashStr = "/sha2-512"
-	default:
-		hashStr = ""
-	}
-	return hashStr
-}
-
-func (h hashivaultClient) createKey(typeStr string) (crypto.PublicKey, error) {
+func (h *hashivaultClient) createKey(typeStr string) (crypto.PublicKey, error) {
 	client := h.client.Logical()
+
+	if err := h.auth.Login(h.client); err != nil {
+		return nil, fmt.Errorf("failed to authenticate: %w", err)
+	}
 
 	if _, err := client.Write(fmt.Sprintf("/%s/keys/%s", h.transitSecretEnginePath, h.keyPath), map[string]interface{}{
 		"type": typeStr,
