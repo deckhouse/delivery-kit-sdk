@@ -14,11 +14,10 @@ import (
 	"github.com/secure-systems-lab/go-securesystemslib/encrypted"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"github.com/sigstore/sigstore/pkg/signature"
-	"github.com/sigstore/sigstore/pkg/signature/kms"
-	_ "github.com/sigstore/sigstore/pkg/signature/kms/hashivault"
 	"golang.org/x/crypto/ed25519"
 
 	"github.com/deckhouse/delivery-kit-sdk/pkg/signver/blob"
+	"github.com/deckhouse/delivery-kit-sdk/pkg/signver/hashivault"
 )
 
 const (
@@ -42,27 +41,15 @@ func signerVerifierFromKeyRef(ctx context.Context, keyRef string, passFunc crypt
 		return nil, errors.New("kubernetes keys are not supported")
 	case strings.HasPrefix(keyRef, gitLabReferenceScheme):
 		return nil, errors.New("gitlab keys are not supported")
-	}
-
-	// hashivault provider is implemented under the hood
-	if strings.Contains(keyRef, "://") {
-		sv, err := kms.Get(ctx, keyRef, crypto.SHA256)
-		if err == nil {
-			return sv, nil
+	case strings.HasPrefix(keyRef, hashivault.ReferenceScheme):
+		return hashivault.LoadSignerVerifier(keyRef, crypto.SHA256)
+	default:
+		sv, err := loadKey(keyRef, passFunc)
+		if err != nil {
+			return nil, fmt.Errorf("reading key: %w", err)
 		}
-		var e *kms.ProviderNotFoundError
-		if !errors.As(err, &e) {
-			return nil, fmt.Errorf("kms get: %w", err)
-		}
-		// ProviderNotFoundError is okay; loadKey handles other URL schemes
+		return sv, nil
 	}
-
-	sv, err := loadKey(keyRef, passFunc)
-	if err != nil {
-		return nil, fmt.Errorf("reading key: %w", err)
-	}
-
-	return sv, err
 }
 
 // loadKey
