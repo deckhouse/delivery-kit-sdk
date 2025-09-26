@@ -105,25 +105,22 @@ func newHashivaultClient(address, token, transitSecretEnginePath, keyResourceID 
 		return nil, fmt.Errorf("new vault client: %w", err)
 	}
 
-	roleId := os.Getenv("VAULT_ROLE_ID")
-	secretID := os.Getenv("VAULT_SECRET_ID")
-
 	var tokenID string
 	var tokenTTL time.Duration
 
-	if roleId != "" && secretID != "" {
-		tokenID, tokenTTL, err = deckhouseAuth(client, roleId, secretID)
+	if roleID, secretID := os.Getenv("VAULT_ROLE_ID"), os.Getenv("VAULT_SECRET_ID"); roleID != "" && secretID != "" {
+		tokenID, tokenTTL, err = deckhouseAuth(client, roleID, secretID)
 		if err != nil {
 			return nil, fmt.Errorf("deckhouse auth: %w", err)
 		}
+		client.SetToken(tokenID)
 	} else {
 		tokenID, tokenTTL, err = sigstoreAuth(token)
 		if err != nil {
 			return nil, fmt.Errorf("sigstore auth: %w", err)
 		}
+		client.SetToken(tokenID)
 	}
-
-	client.SetToken(tokenID)
 
 	if transitSecretEnginePath == "" {
 		transitSecretEnginePath = os.Getenv("TRANSIT_SECRET_ENGINE_PATH")
