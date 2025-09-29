@@ -16,7 +16,7 @@ type baseAuthenticator struct {
 func (b *baseAuthenticator) login(client *vault.Client, path string, data map[string]interface{}) error {
 	b.tokenIssuedAt = time.Now()
 
-	resp, err := client.Logical().Write(path, data)
+	resp, err := client.Logical().Write(fmt.Sprintf("/auth/%s/login", path), data)
 	if err != nil {
 		return fmt.Errorf("vault write: %w", err)
 	}

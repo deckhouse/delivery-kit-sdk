@@ -3,6 +3,7 @@ module github.com/deckhouse/delivery-kit-sdk
 go 1.23.10
 
 require (
+	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/google/certificate-transparency-go v1.1.7
 	github.com/google/go-containerregistry v0.20.1
 	github.com/hashicorp/vault/api v1.14.0
