@@ -21,7 +21,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"strconv"
 
 	"github.com/sigstore/sigstore/pkg/signature"
 	"github.com/sigstore/sigstore/pkg/signature/options"
@@ -70,31 +69,9 @@ type SignerVerifier struct {
 // set to crypto.Hash(0) if the key referred to by referenceStr is an ED25519 signing key.
 func LoadSignerVerifier(referenceStr string, hashFunc crypto.Hash, opts ...signature.RPCOption) (*SignerVerifier, error) {
 	h := &SignerVerifier{}
-	ctx := context.Background()
-	rpcAuth := options.RPCAuth{}
-	var keyVersion string
-	for _, opt := range opts {
-		opt.ApplyRPCAuthOpts(&rpcAuth)
-		opt.ApplyContext(&ctx)
-		opt.ApplyKeyVersion(&keyVersion)
-	}
 
-	var keyVersionUint uint64
 	var err error
-	if keyVersion != "" {
-		keyVersionUint, err = strconv.ParseUint(keyVersion, 10, 64)
-		if err != nil {
-			return nil, fmt.Errorf("parsing key version: %w", err)
-		}
-	}
-
-	if rpcAuth.OIDC.Token != "" {
-		rpcAuth.Token, err = oidcLogin(ctx, rpcAuth.Address, rpcAuth.OIDC.Path, rpcAuth.OIDC.Role, rpcAuth.OIDC.Token)
-		if err != nil {
-			return nil, err
-		}
-	}
-	h.client, err = newHashivaultClient(rpcAuth.Address, rpcAuth.Token, rpcAuth.Path, referenceStr, keyVersionUint)
+	h.client, err = newHashivaultClient("", "", "", referenceStr, 0)
 	if err != nil {
 		return nil, err
 	}

@@ -215,11 +215,11 @@ func GenerateCertificatesWithOptions(options GenerateCertificatesOptions) Genera
 		result.ChainRef = base64.StdEncoding.EncodeToString(chainPem)
 	} else {
 		Expect(options.TmpDir).NotTo(BeEmpty())
-		result.PrivRef = MakeFile(options.TmpDir, "sigstore_*.pem.key", privPem)
-		result.LeafRef = MakeFile(options.TmpDir, "sigstore_*.pem.crt", leafPem)
-		result.IntermediatesRef = MakeFile(options.TmpDir, "sigstore_intermediates_*.pem.crt", intermediatesPem)
-		result.RootRef = MakeFile(options.TmpDir, "sigstore_root_*.pem.crt", rootPem)
-		result.ChainRef = MakeFile(options.TmpDir, "sigstore_chain_*.pem.crt", chainPem)
+		result.PrivRef = MakeFile(options.TmpDir, "delivery_*.pem.key", privPem)
+		result.LeafRef = MakeFile(options.TmpDir, "delivery_*.pem.crt", leafPem)
+		result.IntermediatesRef = MakeFile(options.TmpDir, "delivery_intermediates_*.pem.crt", intermediatesPem)
+		result.RootRef = MakeFile(options.TmpDir, "delivery_root_*.pem.crt", rootPem)
+		result.ChainRef = MakeFile(options.TmpDir, "delivery_chain_*.pem.crt", chainPem)
 	}
 
 	return result
@@ -232,4 +232,33 @@ func MakeFile(tmpDir, filePattern string, fileData []byte) string {
 	_, err = file.Write(fileData)
 	Expect(err).To(Succeed(), fmt.Sprintf("writing fileData %q into file %q: %v", fileData, file.Name(), err))
 	return file.Name()
+}
+
+func FormatPrivateKeyToDERFile(tmpDir string, privKey crypto.Signer) string {
+	x509PKCS8Encoded, err := x509.MarshalPKCS8PrivateKey(privKey)
+	Expect(err).To(Succeed())
+
+	x509PKCS8Base64Encoded := make([]byte, base64.StdEncoding.EncodedLen(len(x509PKCS8Encoded)))
+	base64.StdEncoding.Encode(x509PKCS8Base64Encoded, x509PKCS8Encoded)
+
+	return MakeFile(tmpDir, "delivery_*.asn1.der.base64.key", x509PKCS8Base64Encoded)
+}
+
+func FormatPublicKeyToPEMFile(tmpDir string, pubKey crypto.PublicKey) string {
+	// Marshal the public key to DER format
+	publicKeyBytes, err := x509.MarshalPKIXPublicKey(pubKey)
+	if err != nil {
+		fmt.Println("Error marshaling public key:", err)
+		os.Exit(1)
+	}
+
+	// Create a PEM block
+	publicKeyPEM := &pem.Block{
+		Type:  "PUBLIC KEY", // Or "RSA PUBLIC KEY"
+		Bytes: publicKeyBytes,
+	}
+
+	bytesEncoded := pem.EncodeToMemory(publicKeyPEM)
+
+	return MakeFile(tmpDir, "delivery_*.asn1.der.base64.key", bytesEncoded)
 }
