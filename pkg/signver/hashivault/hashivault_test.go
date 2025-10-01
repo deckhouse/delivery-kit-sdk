@@ -24,12 +24,12 @@ func TestParseReference(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			in:      "hashivault://cosign",
-			wantKey: "cosign",
+			in:      "hashivault://delivery-kit",
+			wantKey: "delivery-kit",
 			wantErr: false,
 		},
 		{
-			in:      "hashivault://cosign/nested",
+			in:      "hashivault://delivery-kit/nested",
 			wantErr: true,
 		},
 		{

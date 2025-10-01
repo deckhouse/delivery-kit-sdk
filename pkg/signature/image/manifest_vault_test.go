@@ -49,7 +49,7 @@ var _ = Describe("manifest", Serial, func() {
 			x509PKCS8Base64Encoded := make([]byte, base64.StdEncoding.EncodedLen(len(x509PKCS8Encoded)))
 			base64.StdEncoding.Encode(x509PKCS8Base64Encoded, x509PKCS8Encoded)
 
-			prvKeyAsn1DerFileName := cert_utils.MakeFile(tmpDir, "sigstore_*.asn1.der.base64.key", x509PKCS8Base64Encoded)
+			prvKeyAsn1DerFileName := cert_utils.MakeFile(tmpDir, "delivery-kit_*.asn1.der.base64.key", x509PKCS8Base64Encoded)
 
 			vaultEndpoint := "endpoint"
 

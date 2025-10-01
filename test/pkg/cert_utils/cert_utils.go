@@ -38,8 +38,8 @@ func generateRootCa(keyType KeyType) (*x509.Certificate, crypto.Signer, error) {
 	rootTemplate := &x509.Certificate{
 		SerialNumber: big.NewInt(1),
 		Subject: pkix.Name{
-			CommonName:   "sigstore",
-			Organization: []string{"sigstore.dev"},
+			CommonName:   "delivery-kit",
+			Organization: []string{"delivery-kit.dev"},
 		},
 		NotBefore:             time.Now().Add(-5 * time.Hour),
 		NotAfter:              time.Now().Add(5 * time.Hour),
@@ -63,8 +63,8 @@ func generateSubordinateCa(keyType KeyType, rootTemplate *x509.Certificate, root
 	subTemplate := &x509.Certificate{
 		SerialNumber: big.NewInt(1),
 		Subject: pkix.Name{
-			CommonName:   "sigstore-sub",
-			Organization: []string{"sigstore.dev"},
+			CommonName:   "delivery-kit-sub",
+			Organization: []string{"delivery-kit.dev"},
 		},
 		NotBefore:             time.Now().Add(-2 * time.Minute),
 		NotAfter:              time.Now().Add(2 * time.Hour),
@@ -215,11 +215,11 @@ func GenerateCertificatesWithOptions(options GenerateCertificatesOptions) Genera
 		result.ChainRef = base64.StdEncoding.EncodeToString(chainPem)
 	} else {
 		Expect(options.TmpDir).NotTo(BeEmpty())
-		result.PrivRef = MakeFile(options.TmpDir, "sigstore_*.pem.key", privPem)
-		result.LeafRef = MakeFile(options.TmpDir, "sigstore_*.pem.crt", leafPem)
-		result.IntermediatesRef = MakeFile(options.TmpDir, "sigstore_intermediates_*.pem.crt", intermediatesPem)
-		result.RootRef = MakeFile(options.TmpDir, "sigstore_root_*.pem.crt", rootPem)
-		result.ChainRef = MakeFile(options.TmpDir, "sigstore_chain_*.pem.crt", chainPem)
+		result.PrivRef = MakeFile(options.TmpDir, "delivery-kit_*.pem.key", privPem)
+		result.LeafRef = MakeFile(options.TmpDir, "delivery-kit_*.pem.crt", leafPem)
+		result.IntermediatesRef = MakeFile(options.TmpDir, "delivery-kit_intermediates_*.pem.crt", intermediatesPem)
+		result.RootRef = MakeFile(options.TmpDir, "delivery-kit_root_*.pem.crt", rootPem)
+		result.ChainRef = MakeFile(options.TmpDir, "delivery-kit_chain_*.pem.crt", chainPem)
 	}
 
 	return result
