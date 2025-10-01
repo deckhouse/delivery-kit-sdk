@@ -132,7 +132,7 @@ func loadRootsAndIntermediatesFromRef(chainRef string) ([]*x509.Certificate, []*
 
 // trustedCert
 // Copied from https://github.com/sigstore/cosign/blob/c948138c19691142c1e506e712b7c1646e8ceb21/pkg/cosign/verify.go#L1436
-// as is.
+// and modified after.
 func trustedCert(cert *x509.Certificate, roots, intermediates *x509.CertPool) ([][]*x509.Certificate, error) {
 	chains, err := cert.Verify(x509.VerifyOptions{
 		// THIS IS IMPORTANT: WE DO NOT CHECK TIMES HERE
@@ -147,7 +147,7 @@ func trustedCert(cert *x509.Certificate, roots, intermediates *x509.CertPool) ([
 		},
 	})
 	if err != nil {
-		return nil, fmt.Errorf("cert verification failed: %w. Check your TUF root (see cosign initialize) or set a custom root with env var SIGSTORE_ROOT_FILE", err)
+		return nil, fmt.Errorf("cert verification failed: %w", err)
 	}
 	return chains, nil
 }
