@@ -181,7 +181,7 @@ func GenerateCertificatesWithOptions(options GenerateCertificatesOptions) Genera
 	encBytes, err := encrypted.Encrypt(x509Encoded, password)
 	Expect(err).To(Succeed(), fmt.Sprintf("failed to encrypt key: %v", err))
 
-	privPem := pem.EncodeToMemory(&pem.Block{Bytes: encBytes, Type: signver.SigstorePrivateKeyPemType})
+	privPem := pem.EncodeToMemory(&pem.Block{Bytes: encBytes, Type: signver.DeliveryKitPrivateKeyPemType})
 	leafPem := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: leafCert.Raw})
 	intermediatesPem := make([]byte, 0)
 	rootPem := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: rootCert.Raw})

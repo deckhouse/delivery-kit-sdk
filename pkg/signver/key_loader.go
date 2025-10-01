@@ -81,7 +81,7 @@ func loadPrivateKey(key, pass []byte) (signature.SignerVerifier, error) {
 		return nil, errors.New("invalid pem block")
 	}
 
-	if p.Type != SigstorePrivateKeyPemType && p.Type != PrivateKeyPemType {
+	if p.Type != DeliveryKitPrivateKeyPemType && p.Type != PrivateKeyPemType {
 		return nil, fmt.Errorf("unsupported pem type: %s", p.Type)
 	}
 
