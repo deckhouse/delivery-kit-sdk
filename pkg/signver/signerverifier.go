@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	SigstorePrivateKeyPemType = "ENCRYPTED SIGSTORE PRIVATE KEY"
+	DeliveryKitPrivateKeyPemType = "ENCRYPTED DELIVERY-KIT PRIVATE KEY"
 	// PEM-encoded PKCS #8 RSA, ECDSA or ED25519 private key
 	PrivateKeyPemType = "PRIVATE KEY"
 )
