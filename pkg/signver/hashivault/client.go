@@ -117,9 +117,9 @@ func newHashivaultClient(address, token, transitSecretEnginePath, keyResourceID 
 			return nil, fmt.Errorf("deckhouse auth: %w", err)
 		}
 	} else {
-		tokenID, tokenTTL, err = sigstoreAuth(token)
+		tokenID, tokenTTL, err = staticTokenAuth(token)
 		if err != nil {
-			return nil, fmt.Errorf("sigstore auth: %w", err)
+			return nil, fmt.Errorf("static token auth: %w", err)
 		}
 	}
 
@@ -180,7 +180,7 @@ func deckhouseAuth(client *vault.Client, roleID, secretID string) (string, time.
 	return tokenID, tokenTTL, nil
 }
 
-func sigstoreAuth(token string) (string, time.Duration, error) {
+func staticTokenAuth(token string) (string, time.Duration, error) {
 	if token == "" {
 		token = os.Getenv("VAULT_TOKEN")
 	}
