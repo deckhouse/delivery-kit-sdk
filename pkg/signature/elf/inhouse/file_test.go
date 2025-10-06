@@ -4,7 +4,6 @@
 package inhouse_test
 
 import (
-	"fmt"
 	"os"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -109,7 +108,7 @@ var _ = Describe("signature/elf/custom", func() {
 		},
 		Entry(
 			"with x509 certs",
-			MatchError(fmt.Errorf("no signature bundle found in %s ELF", helloElfFile)),
+			MatchError(elf.ErrNoSignatureSection),
 		),
 	)
 

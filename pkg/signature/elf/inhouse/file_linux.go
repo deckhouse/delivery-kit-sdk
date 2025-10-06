@@ -177,7 +177,7 @@ func Verify(ctx context.Context, rootCertRefs []string, path string) error {
 	}
 
 	if cSignatureBundleSize == 0 {
-		return fmt.Errorf("no signature bundle found in %s ELF", path)
+		return elf.ErrNoSignatureSection
 	}
 
 	signatureBundleBytes := []byte{}
