@@ -175,6 +175,11 @@ func Verify(ctx context.Context, rootCertRefs []string, path string) error {
 	if C.welf_get_elf_signature(cElf, &cSignatureBundleBuf, &cSignatureBundleSize) < 0 {
 		return fmt.Errorf("get elf signature failed: %s", C.GoString(C.welf_errmsg()))
 	}
+
+	if cSignatureBundleSize == 0 {
+		return fmt.Errorf("no signature bundle found in %s ELF", path)
+	}
+
 	signatureBundleBytes := []byte{}
 	if cSignatureBundleBuf != nil {
 		defer C.free(unsafe.Pointer(cSignatureBundleBuf))
