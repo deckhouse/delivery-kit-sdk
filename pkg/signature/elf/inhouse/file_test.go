@@ -8,6 +8,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/types"
 
 	"github.com/deckhouse/delivery-kit-sdk/pkg/signature/elf"
 	"github.com/deckhouse/delivery-kit-sdk/pkg/signature/elf/inhouse"
@@ -102,11 +103,12 @@ var _ = Describe("signature/elf/custom", func() {
 	)
 
 	DescribeTable("should fail to verify signature because no signature",
-		func(ctx SpecContext) {
-			Expect(inhouse.Verify(ctx, []string{cert_utils.RootCABase64}, helloElfFile)).To(HaveOccurred())
+		func(ctx SpecContext, errMatcher types.GomegaMatcher) {
+			Expect(inhouse.Verify(ctx, []string{cert_utils.RootCABase64}, helloElfFile)).To(errMatcher)
 		},
 		Entry(
 			"with x509 certs",
+			MatchError(elf.ErrNoSignatureSection),
 		),
 	)
 
