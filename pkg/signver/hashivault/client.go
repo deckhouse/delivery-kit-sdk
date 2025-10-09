@@ -69,9 +69,9 @@ func newHashivaultClient(address, token, transitSecretEnginePath, keyResourceID 
 
 	var auth authenticator
 	if roleID, secretID := os.Getenv("VAULT_ROLE_ID"), os.Getenv("VAULT_SECRET_ID"); roleID != "" && secretID != "" {
-		auth = newAppRoleAuthenticator("ar", roleID, secretID)
-	} else if jwtToken := os.Getenv("VAULT_JWT_TOKEN"); jwtToken != "" {
-		auth = newJWTAuthenticator("jwt", jwtToken, os.Getenv("VAULT_JWT_ROLE"))
+		auth = newAppRoleAuthenticator(roleID, secretID)
+	} else if jwtToken := os.Getenv("VAULT_JWT"); jwtToken != "" {
+		auth = newJWTAuthenticator(jwtToken, os.Getenv("VAULT_ROLE"))
 	} else {
 		if token, err = getVaultToken(token); err != nil {
 			return nil, err

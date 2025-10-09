@@ -1,0 +1,30 @@
+name: Test E2E
+
+on: [push]
+
+jobs:
+  test-e2e:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+
+    env:
+      VAULT_ADDR: ${{ secrets.VAULT_ADDR }}
+      VAULT_ROLE: ${{ secrets.VAULT_ROLE }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Use Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Install Task
+        uses: arduino/setup-task@v2
+
+      - name: Install project dependencies
+        run: task deps:install
+
+      - name: Test E2E
+        run: task test:e2e

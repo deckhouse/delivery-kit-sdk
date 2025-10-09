@@ -6,15 +6,15 @@ type appRoleAuthenticator struct {
 	baseAuthenticator
 	roleID   string
 	secretID string
-	path     string
 }
 
-func newAppRoleAuthenticator(path, roleID, secretID string) *appRoleAuthenticator {
+func newAppRoleAuthenticator(roleID, secretID string) *appRoleAuthenticator {
 	return &appRoleAuthenticator{
-		baseAuthenticator: baseAuthenticator{},
-		path:              path,
-		roleID:            roleID,
-		secretID:          secretID,
+		baseAuthenticator: baseAuthenticator{
+			loginNamespace: "ar",
+		},
+		roleID:   roleID,
+		secretID: secretID,
 	}
 }
 
@@ -23,5 +23,5 @@ func (a *appRoleAuthenticator) Login(client *vault.Client) error {
 		"role_id":   a.roleID,
 		"secret_id": a.secretID,
 	}
-	return a.baseAuthenticator.login(client, a.path, loginData)
+	return a.baseAuthenticator.login(client, loginData)
 }

@@ -6,15 +6,15 @@ type jwtAuthenticator struct {
 	baseAuthenticator
 	jwtToken string
 	role     string
-	path     string
 }
 
-func newJWTAuthenticator(path, jwtToken, role string) *jwtAuthenticator {
+func newJWTAuthenticator(jwtToken, role string) *jwtAuthenticator {
 	return &jwtAuthenticator{
-		baseAuthenticator: baseAuthenticator{},
-		path:              path,
-		jwtToken:          jwtToken,
-		role:              role,
+		baseAuthenticator: baseAuthenticator{
+			loginNamespace: "jwt",
+		},
+		jwtToken: jwtToken,
+		role:     role,
 	}
 }
 
@@ -23,5 +23,5 @@ func (j *jwtAuthenticator) Login(client *vault.Client) error {
 		"role": j.role,
 		"jwt":  j.jwtToken,
 	}
-	return j.baseAuthenticator.login(client, j.path, loginData)
+	return j.baseAuthenticator.login(client, loginData)
 }

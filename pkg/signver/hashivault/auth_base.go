@@ -2,21 +2,23 @@ package hashivault
 
 import (
 	"fmt"
+	"os"
 	"time"
 
 	vault "github.com/hashicorp/vault/api"
 )
 
 type baseAuthenticator struct {
-	tokenID       string
-	tokenTTL      time.Duration
-	tokenIssuedAt time.Time
+	loginNamespace string
+	tokenID        string
+	tokenTTL       time.Duration
+	tokenIssuedAt  time.Time
 }
 
-func (b *baseAuthenticator) login(client *vault.Client, path string, data map[string]interface{}) error {
+func (b *baseAuthenticator) login(client *vault.Client, data map[string]interface{}) error {
 	b.tokenIssuedAt = time.Now()
 
-	resp, err := client.Logical().Write(fmt.Sprintf("/auth/%s/login", path), data)
+	resp, err := client.Logical().Write(fmt.Sprintf("/auth/%s/login", b.getLoginNamespace()), data)
 	if err != nil {
 		return fmt.Errorf("vault write: %w", err)
 	}
@@ -36,6 +38,13 @@ func (b *baseAuthenticator) login(client *vault.Client, path string, data map[st
 	client.SetToken(b.tokenID)
 
 	return nil
+}
+
+func (b *baseAuthenticator) getLoginNamespace() string {
+	if namespace := os.Getenv("VAULT_LOGIN_NAMESPACE"); namespace != "" {
+		return namespace
+	}
+	return b.loginNamespace
 }
 
 func (b *baseAuthenticator) Login(client *vault.Client) error {
