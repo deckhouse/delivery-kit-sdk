@@ -247,10 +247,7 @@ func FormatPrivateKeyToDERFile(tmpDir string, privKey crypto.Signer) string {
 func FormatPublicKeyToPEMFile(tmpDir string, pubKey crypto.PublicKey) string {
 	// Marshal the public key to DER format
 	publicKeyBytes, err := x509.MarshalPKIXPublicKey(pubKey)
-	if err != nil {
-		fmt.Println("Error marshaling public key:", err)
-		os.Exit(1)
-	}
+	Expect(err).To(Succeed())
 
 	// Create a PEM block
 	publicKeyPEM := &pem.Block{
@@ -260,5 +257,5 @@ func FormatPublicKeyToPEMFile(tmpDir string, pubKey crypto.PublicKey) string {
 
 	bytesEncoded := pem.EncodeToMemory(publicKeyPEM)
 
-	return MakeFile(tmpDir, "delivery_*.asn1.der.base64.key", bytesEncoded)
+	return MakeFile(tmpDir, "delivery-kit_*.asn1.der.base64.key", bytesEncoded)
 }
