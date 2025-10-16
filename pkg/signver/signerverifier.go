@@ -54,7 +54,7 @@ func NewSignerVerifier(ctx context.Context, certRef, certChainRef string, ko Key
 		}
 		leafCert, err := VerifyCert(pk, certRef)
 		if err != nil {
-			return nil, fmt.Errorf("cer verification: %w", err)
+			return nil, fmt.Errorf("cert verification: %w", err)
 		}
 		pemBytes, err := cryptoutils.MarshalCertificateToPEM(leafCert)
 		if err != nil {

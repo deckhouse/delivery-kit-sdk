@@ -15,7 +15,9 @@
 
 package hashivault
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestParseReference(t *testing.T) {
 	tests := []struct {

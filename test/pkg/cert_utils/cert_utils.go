@@ -233,3 +233,29 @@ func MakeFile(tmpDir, filePattern string, fileData []byte) string {
 	Expect(err).To(Succeed(), fmt.Sprintf("writing fileData %q into file %q: %v", fileData, file.Name(), err))
 	return file.Name()
 }
+
+func FormatPrivateKeyToDERFile(tmpDir string, privKey crypto.Signer) string {
+	x509PKCS8Encoded, err := x509.MarshalPKCS8PrivateKey(privKey)
+	Expect(err).To(Succeed())
+
+	x509PKCS8Base64Encoded := make([]byte, base64.StdEncoding.EncodedLen(len(x509PKCS8Encoded)))
+	base64.StdEncoding.Encode(x509PKCS8Base64Encoded, x509PKCS8Encoded)
+
+	return MakeFile(tmpDir, "delivery_*.asn1.der.base64.key", x509PKCS8Base64Encoded)
+}
+
+func FormatPublicKeyToPEMFile(tmpDir string, pubKey crypto.PublicKey) string {
+	// Marshal the public key to DER format
+	publicKeyBytes, err := x509.MarshalPKIXPublicKey(pubKey)
+	Expect(err).To(Succeed())
+
+	// Create a PEM block
+	publicKeyPEM := &pem.Block{
+		Type:  "PUBLIC KEY", // Or "RSA PUBLIC KEY"
+		Bytes: publicKeyBytes,
+	}
+
+	bytesEncoded := pem.EncodeToMemory(publicKeyPEM)
+
+	return MakeFile(tmpDir, "delivery-kit_*.asn1.der.base64.key", bytesEncoded)
+}

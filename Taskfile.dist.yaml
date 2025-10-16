@@ -33,14 +33,28 @@ tasks:
     cmds:
       - gofumpt -extra -w {{.CLI_ARGS}} {{.paths | default "pkg/ test/ internal/"}}
 
-  test:unit:
-    desc: 'Run all unit tests. Important vars: "paths".'
+  test:ginkgo:
+    desc: 'Run raw "ginkgo". Important vars: "paths".'
     vars:
       parallel: '{{.parallel | default "true"}}'
       paths: '{{.paths | default "./pkg/... ./internal/..." }}'
+      labelFilter: '{{.labelFilter | default ""}}'
     cmds:
-      - |
-        ginkgo {{if eq .parallel "true" }}-p{{end}} -r -race {{.CLI_ARGS}} {{.paths}}
+      - ginkgo {{if eq .parallel "true" }}-p{{end}} {{if .labelFilter}}--label-filter="{{.labelFilter}}"{{end}} -r -race {{.CLI_ARGS}} {{.paths}}
+
+  test:unit:
+    desc: 'Run all unit tests.'
+    cmds:
+      - task: test:ginkgo
+        vars:
+          labelFilter: '!e2e'
+
+  test:e2e:
+    desc: 'Run e2e tests.'
+    cmds:
+      - task: test:ginkgo
+        vars:
+          labelFilter: 'e2e'
 
   deps:install:
     desc: "Install all dependencies"

@@ -1,0 +1,36 @@
+name: Test E2E
+
+on: [push]
+
+jobs:
+  test-e2e:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+
+    permissions:
+      contents: read
+      id-token: write
+
+    env:
+      VAULT_ADDR: ${{ secrets.VAULT_ADDR }}
+      VAULT_ROLE: ${{ secrets.VAULT_ROLE }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Use Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Install Task
+        uses: arduino/setup-task@v2
+
+      - name: Install project dependencies
+        run: task deps:install
+
+      - name: Test E2E
+        run: |
+          export ACTIONS_ID_TOKEN=$(jq -r .value <<< $(curl -fsH "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=github-access-aud" ))
+          task test:e2e
