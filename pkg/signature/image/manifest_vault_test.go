@@ -246,6 +246,12 @@ var _ = Describe("manifest wirh real vault", Label("e2e"), func() {
 					Skip("Skipped because TRANSIT_SECRET_ENGINE_PATH, VAULT_ADDR, VAULT_ROLE_ID or VAULT_SECRET_ID is not set")
 				}
 
+				// GinkgoT().Setenv("VAULT_ADDR", "some_domain")
+				// GinkgoT().Setenv("VAULT_LOGIN_NAMESPACE", "approle")
+				// GinkgoT().Setenv("TRANSIT_SECRET_ENGINE_PATH", "some_path")
+				// GinkgoT().Setenv("VAULT_ROLE_ID", "some_role_id")
+				// GinkgoT().Setenv("VAULT_SECRET_ID", "some_secret_id")
+
 				sv, err := signver.NewSignerVerifier(ctx, certRef, chainRef, signver.KeyOpts{
 					KeyRef: keyRef,
 				})
