@@ -13,6 +13,7 @@ require (
 	github.com/onsi/gomega v1.36.0
 	github.com/samber/lo v1.51.0
 	golang.org/x/crypto v0.40.0
+	k8s.io/utils v0.0.0-20240310230437-4693a0247e57
 )
 
 require (

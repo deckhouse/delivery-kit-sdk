@@ -2,7 +2,6 @@ package hashivault
 
 import (
 	"fmt"
-	"os"
 	"time"
 
 	vault "github.com/hashicorp/vault/api"
@@ -41,7 +40,7 @@ func (b *baseAuthenticator) login(client *vault.Client, data map[string]interfac
 }
 
 func (b *baseAuthenticator) getLoginNamespace() string {
-	if namespace := os.Getenv("VAULT_LOGIN_NAMESPACE"); namespace != "" {
+	if namespace := getVaultAuthNamespace(); namespace != "" {
 		return namespace
 	}
 	return b.loginNamespace
