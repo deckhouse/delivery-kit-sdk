@@ -40,7 +40,7 @@ func (b *baseAuthenticator) login(client *vault.Client, data map[string]interfac
 }
 
 func (b *baseAuthenticator) getLoginNamespace() string {
-	if namespace := getVaultAuthNamespace(); namespace != "" {
+	if namespace := getVaultAuthPath(); namespace != "" {
 		return namespace
 	}
 	return b.loginNamespace

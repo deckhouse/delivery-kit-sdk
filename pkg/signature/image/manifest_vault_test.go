@@ -202,7 +202,7 @@ var _ = Describe("manifest wirh real vault", Label("e2e"), func() {
 
 				// GinkgoT().Setenv("VAULT_ADDR", "")
 				GinkgoT().Setenv("TRANSIT_SECRET_ENGINE_PATH", "dh-signer-dev")
-				GinkgoT().Setenv("WERF_VAULT_AUTH_NAMESPACE", "github")
+				GinkgoT().Setenv("WERF_VAULT_AUTH_PATH", "github")
 				GinkgoT().Setenv("WERF_VAULT_AUTH_JWT", os.Getenv("ACTIONS_ID_TOKEN"))
 				// GinkgoT().Setenv("WERF_VAULT_AUTH_ROLE", "")
 
@@ -247,7 +247,7 @@ var _ = Describe("manifest wirh real vault", Label("e2e"), func() {
 				}
 
 				// GinkgoT().Setenv("VAULT_ADDR", "some_domain")
-				// GinkgoT().Setenv("WERF_VAULT_AUTH_NAMESPACE", "approle")
+				// GinkgoT().Setenv("WERF_VAULT_AUTH_PATH", "approle")
 				// GinkgoT().Setenv("TRANSIT_SECRET_ENGINE_PATH", "some_path")
 				// GinkgoT().Setenv("WERF_VAULT_AUTH_ROLE_ID", "some_role_id")
 				// GinkgoT().Setenv("WERF_VAULT_AUTH_SECRET_ID", "some_secret_id")

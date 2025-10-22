@@ -20,10 +20,10 @@ you need to get an **access token** via one of next authentication methods.
 | App Role             | Sets credentials to get access token | `WERF_VAULT_AUTH_ROLE_ID`, `WERF_VAULT_AUTH_SECRET_ID` | `/auth/ar/login`  | Not used      | On every operation |
 | JSON Web Token (JWT) | Sets credentials to get access token | `WERF_VAULT_AUTH_JWT`, `WERF_VAULT_AUTH_ROLE`          | `/auth/jwt/login` | Not used      | On every operation |
 
-If auth method use default URI it could be configured with `WERF_VAULT_AUTH_NAMESPACE` environment variable. 
+If auth method use default URI it could be configured with `WERF_VAULT_AUTH_PATH` environment variable. 
 
 For example, JWT auth method uses `/auth/jwt/login` by default. 
-So setting `WERF_VAULT_AUTH_NAMESPACE=github` we change the URI to `/auth/github/login`.
+So setting `WERF_VAULT_AUTH_PATH=github` we change the URI to `/auth/github/login`.
 
 ### Examples
 

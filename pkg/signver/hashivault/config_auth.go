@@ -20,6 +20,6 @@ func getVaultAuthJwt() string {
 	return env.GetString("WERF_VAULT_AUTH_JWT", "")
 }
 
-func getVaultAuthNamespace() string {
-	return env.GetString("WERF_VAULT_AUTH_NAMESPACE", "")
+func getVaultAuthPath() string {
+	return env.GetString("WERF_VAULT_AUTH_PATH", "")
 }
