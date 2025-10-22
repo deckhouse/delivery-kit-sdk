@@ -69,7 +69,7 @@ var _ = Describe("manifest wirh real vault", Label("e2e"), func() {
 			),
 		)
 
-		DescribeTable("sign and verify image manifest one time using per request auth with VAULT_JWT",
+		DescribeTable("sign and verify image manifest one time using per request auth with WERF_VAULT_AUTH_JWT",
 			Serial,
 			func(ctx SpecContext, keyType cert_utils.KeyType) {
 				tmpDir := GinkgoT().TempDir()
@@ -127,8 +127,8 @@ var _ = Describe("manifest wirh real vault", Label("e2e"), func() {
 
 				GinkgoT().Setenv("TRANSIT_SECRET_ENGINE_PATH", vaultTransitPath)
 				GinkgoT().Setenv("VAULT_ADDR", vaultServer.Addr.String())
-				GinkgoT().Setenv("VAULT_JWT", jwtTokenStr)
-				GinkgoT().Setenv("VAULT_ROLE", jwtRoleName)
+				GinkgoT().Setenv("WERF_VAULT_AUTH_JWT", jwtTokenStr)
+				GinkgoT().Setenv("WERF_VAULT_AUTH_ROLE", jwtRoleName)
 
 				sv, err := signver.NewSignerVerifier(ctx, certGen.LeafRef, certGen.ChainRef, signver.KeyOpts{
 					KeyRef:   fmt.Sprintf("hashivault://%s", vaultEndpoint),
@@ -191,20 +191,20 @@ var _ = Describe("manifest wirh real vault", Label("e2e"), func() {
 			),
 		)
 
-		DescribeTable("sign and verify image manifest one time using per request auth with VAULT_JWT on GitHub CI",
+		DescribeTable("sign and verify image manifest one time using per request auth with WERF_VAULT_AUTH_JWT on GitHub CI",
 			func(ctx SpecContext, keyRef, certRef, chainRef, rootRef string, useVerification bool) {
 				if os.Getenv("CI") != "true" ||
 					os.Getenv("VAULT_ADDR") == "" ||
-					os.Getenv("VAULT_ROLE") == "" ||
+					os.Getenv("WERF_VAULT_AUTH_ROLE") == "" ||
 					os.Getenv("ACTIONS_ID_TOKEN") == "" {
-					Skip("Skipped because CI=false or VAULT_ADDR, VAULT_ROLE or ACTIONS_ID_TOKEN is not set")
+					Skip("Skipped because CI=false or VAULT_ADDR, WERF_VAULT_AUTH_ROLE or ACTIONS_ID_TOKEN is not set")
 				}
 
 				// GinkgoT().Setenv("VAULT_ADDR", "")
 				GinkgoT().Setenv("TRANSIT_SECRET_ENGINE_PATH", "dh-signer-dev")
-				GinkgoT().Setenv("VAULT_LOGIN_NAMESPACE", "github")
-				GinkgoT().Setenv("VAULT_JWT", os.Getenv("ACTIONS_ID_TOKEN"))
-				// GinkgoT().Setenv("VAULT_ROLE", "")
+				GinkgoT().Setenv("WERF_VAULT_AUTH_PATH", "github")
+				GinkgoT().Setenv("WERF_VAULT_AUTH_JWT", os.Getenv("ACTIONS_ID_TOKEN"))
+				// GinkgoT().Setenv("WERF_VAULT_AUTH_ROLE", "")
 
 				sv, err := signver.NewSignerVerifier(ctx, certRef, chainRef, signver.KeyOpts{
 					KeyRef: keyRef,
@@ -241,16 +241,16 @@ var _ = Describe("manifest wirh real vault", Label("e2e"), func() {
 			func(ctx SpecContext, keyRef, certRef, chainRef, rootRef string, signingExperimentTimeout, signingExperiment, signingAttemptInterval time.Duration) {
 				if os.Getenv("TRANSIT_SECRET_ENGINE_PATH") == "" ||
 					os.Getenv("VAULT_ADDR") == "" ||
-					os.Getenv("VAULT_ROLE_ID") == "" ||
-					os.Getenv("VAULT_SECRET_ID") == "" {
-					Skip("Skipped because TRANSIT_SECRET_ENGINE_PATH, VAULT_ADDR, VAULT_ROLE_ID or VAULT_SECRET_ID is not set")
+					os.Getenv("WERF_VAULT_AUTH_ROLE_ID") == "" ||
+					os.Getenv("WERF_VAULT_AUTH_SECRET_ID") == "" {
+					Skip("Skipped because TRANSIT_SECRET_ENGINE_PATH, VAULT_ADDR, WERF_VAULT_AUTH_ROLE_ID or WERF_VAULT_AUTH_SECRET_ID is not set")
 				}
 
 				// GinkgoT().Setenv("VAULT_ADDR", "some_domain")
-				// GinkgoT().Setenv("VAULT_LOGIN_NAMESPACE", "approle")
+				// GinkgoT().Setenv("WERF_VAULT_AUTH_PATH", "approle")
 				// GinkgoT().Setenv("TRANSIT_SECRET_ENGINE_PATH", "some_path")
-				// GinkgoT().Setenv("VAULT_ROLE_ID", "some_role_id")
-				// GinkgoT().Setenv("VAULT_SECRET_ID", "some_secret_id")
+				// GinkgoT().Setenv("WERF_VAULT_AUTH_ROLE_ID", "some_role_id")
+				// GinkgoT().Setenv("WERF_VAULT_AUTH_SECRET_ID", "some_secret_id")
 
 				sv, err := signver.NewSignerVerifier(ctx, certRef, chainRef, signver.KeyOpts{
 					KeyRef: keyRef,

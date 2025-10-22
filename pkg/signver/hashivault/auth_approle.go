@@ -11,7 +11,7 @@ type appRoleAuthenticator struct {
 func newAppRoleAuthenticator(roleID, secretID string) *appRoleAuthenticator {
 	return &appRoleAuthenticator{
 		baseAuthenticator: baseAuthenticator{
-			loginNamespace: "ar",
+			authPath: "ar",
 		},
 		roleID:   roleID,
 		secretID: secretID,

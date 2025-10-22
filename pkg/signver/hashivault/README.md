@@ -14,16 +14,16 @@ This package implements loading keys from Vault server.
 Before requesting server with "sing" / "verify" operations
 you need to get an **access token** via one of next authentication methods.
 
-| Name                 | Description                          | Environment Variables              | URI (default)     | Renewal token | Refreshing token   |
-|----------------------|--------------------------------------|------------------------------------|-------------------|---------------|--------------------|
-| Static Token         | Explicitly sets access token         | `VAULT_TOKEN`                      | Not used          | Not used      | Not used           |
-| App Role             | Sets credentials to get access token | `VAULT_ROLE_ID`, `VAULT_SECRET_ID` | `/auth/ar/login`  | Not used      | On every operation |
-| JSON Web Token (JWT) | Sets credentials to get access token | `VAULT_JWT`, `VAULT_ROLE`          | `/auth/jwt/login` | Not used      | On every operation |
+| Name                 | Description                          | Environment Variables                                  | URI (default)     | Renewal token | Refreshing token   |
+|----------------------|--------------------------------------|--------------------------------------------------------|-------------------|---------------|--------------------|
+| Static Token         | Explicitly sets access token         | `VAULT_TOKEN`                                          | Not used          | Not used      | Not used           |
+| App Role             | Sets credentials to get access token | `WERF_VAULT_AUTH_ROLE_ID`, `WERF_VAULT_AUTH_SECRET_ID` | `/auth/ar/login`  | Not used      | On every operation |
+| JSON Web Token (JWT) | Sets credentials to get access token | `WERF_VAULT_AUTH_JWT`, `WERF_VAULT_AUTH_ROLE`          | `/auth/jwt/login` | Not used      | On every operation |
 
-If auth method use default URI it could be configured with `VAULT_LOGIN_NAMESPACE` environment variable. 
+If auth method use default URI it could be configured with `WERF_VAULT_AUTH_PATH` environment variable. 
 
 For example, JWT auth method uses `/auth/jwt/login` by default. 
-So setting `VAULT_LOGIN_NAMESPACE=github` we change the URI to `/auth/github/login`.
+So setting `WERF_VAULT_AUTH_PATH=github` we change the URI to `/auth/github/login`.
 
 ### Examples
 

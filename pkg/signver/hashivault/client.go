@@ -23,7 +23,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
 	"strconv"
 
 	vault "github.com/hashicorp/vault/api"
@@ -68,10 +67,10 @@ func newHashivaultClient(address, token, transitSecretEnginePath, keyResourceID 
 	}
 
 	var auth authenticator
-	if roleID, secretID := os.Getenv("VAULT_ROLE_ID"), os.Getenv("VAULT_SECRET_ID"); roleID != "" && secretID != "" {
+	if roleID, secretID := getVaultAuthRoleId(), getVaultAuthSecretId(); roleID != "" && secretID != "" {
 		auth = newAppRoleAuthenticator(roleID, secretID)
-	} else if jwtToken := os.Getenv("VAULT_JWT"); jwtToken != "" {
-		auth = newJWTAuthenticator(jwtToken, os.Getenv("VAULT_ROLE"))
+	} else if jwtToken := getVaultAuthJwt(); jwtToken != "" {
+		auth = newJWTAuthenticator(jwtToken, getVaultAuthRole())
 	} else {
 		if token, err = getVaultToken(token); err != nil {
 			return nil, err

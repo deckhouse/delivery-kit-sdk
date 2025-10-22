@@ -11,7 +11,7 @@ type jwtAuthenticator struct {
 func newJWTAuthenticator(jwtToken, role string) *jwtAuthenticator {
 	return &jwtAuthenticator{
 		baseAuthenticator: baseAuthenticator{
-			loginNamespace: "jwt",
+			authPath: "jwt",
 		},
 		jwtToken: jwtToken,
 		role:     role,
