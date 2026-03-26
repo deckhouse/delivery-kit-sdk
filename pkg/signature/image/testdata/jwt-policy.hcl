@@ -1,8 +1,8 @@
-path "transit/sign/endpoint/sha2-256" {
+path "transit/sign/*" {
   capabilities = ["update"]
 }
 
-path "transit/keys/endpoint" {
+path "transit/keys/*" {
   capabilities = ["read"]
   required_parameters = []
   allowed_parameters = {}

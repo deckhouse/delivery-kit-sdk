@@ -18,6 +18,7 @@ package hashivault
 import (
 	"context"
 	"crypto"
+	"crypto/ed25519"
 	"errors"
 	"fmt"
 	"io"
@@ -65,8 +66,8 @@ type SignerVerifier struct {
 
 // LoadSignerVerifier generates signatures using the specified key object in Vault and hash algorithm.
 //
-// It also can verify signatures (via a remote vall to the Vault instance). hashFunc should be
-// set to crypto.Hash(0) if the key referred to by referenceStr is an ED25519 signing key.
+// It also can verify signatures (via a remote vall to the Vault instance). The hashFunc will be
+// automatically set to crypto.Hash(0) if the key referred to by referenceStr is an ED25519 signing key.
 func LoadSignerVerifier(referenceStr string, hashFunc crypto.Hash, opts ...signature.RPCOption) (*SignerVerifier, error) {
 	h := &SignerVerifier{}
 
@@ -81,6 +82,17 @@ func LoadSignerVerifier(referenceStr string, hashFunc crypto.Hash, opts ...signa
 		h.hashFunc = hashFunc
 	default:
 		return nil, errors.New("hash function not supported by Hashivault")
+	}
+
+	pub, err := h.PublicKey()
+	if err != nil {
+		return nil, fmt.Errorf("getting public key to determine algorithm: %w", err)
+	}
+
+	// Ed25519 in Vault Transit expects the raw message, so we must disable
+	// automatic hashing by setting hashFunc to crypto.Hash(0).
+	if _, ok := pub.(ed25519.PublicKey); ok {
+		h.hashFunc = crypto.Hash(0)
 	}
 
 	return h, nil

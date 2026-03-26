@@ -165,7 +165,7 @@ var _ = Describe("manifest", func() {
 })
 
 func testSign(ctx context.Context, sv *signver.SignerVerifier) *v1.Manifest {
-	imageRef := "alpine:3.19"
+	imageRef := "registry.werf.io/base/alpine:latest"
 
 	ref, err := name.ParseReference(imageRef)
 	Expect(err).To(Succeed())
