@@ -19,6 +19,7 @@ package hashivault
 import (
 	"context"
 	"crypto"
+	"crypto/ed25519"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -146,6 +147,19 @@ func (h *hashivaultClient) fetchPublicKey(_ context.Context) (crypto.PublicKey, 
 		return nil, fmt.Errorf("could not parse public key pem as string")
 	}
 
+	// Vault Transit Engine returns ed25519 public keys as a raw base64-encoded string
+	// of the 32-byte key, unlike RSA or ECDSA which are returned as PEM blocks.
+	if keyType := keyMap["name"]; keyType == "ed25519" {
+		decodedPublicKey, err := base64.StdEncoding.DecodeString(strPublicKeyPem)
+		if err != nil {
+			return nil, fmt.Errorf("failed to base64 decode ed25519 public key: %w", err)
+		}
+		if keyLen := len(decodedPublicKey); keyLen != ed25519.PublicKeySize {
+			return nil, fmt.Errorf("decoded ed25519 public key length is %d, should be %d", keyLen, ed25519.PublicKeySize)
+		}
+		return ed25519.PublicKey(decodedPublicKey), nil
+	}
+
 	return cryptoutils.UnmarshalPEMToPublicKey([]byte(strPublicKeyPem))
 }
 
@@ -197,7 +211,7 @@ func (h *hashivaultClient) sign(digest []byte, alg crypto.Hash, opts ...signatur
 
 	signResult, err := client.Write(fmt.Sprintf("/%s/sign/%s%s", h.transitSecretEnginePath, h.keyPath, hashString(alg)), map[string]interface{}{
 		"input":               base64.StdEncoding.Strict().EncodeToString(digest),
-		"prehashed":           alg != crypto.Hash(0),
+		"prehashed":           alg != crypto.Hash(0), // For ED25519, alg is 0, so prehashed is false as required by Vault.
 		"key_version":         keyVersion,
 		"signature_algorithm": "pkcs1v15",
 	})
@@ -233,7 +247,7 @@ func (h *hashivaultClient) verify(sig, digest []byte, alg crypto.Hash, opts ...s
 
 	result, err := client.Write(fmt.Sprintf("/%s/verify/%s/%s", h.transitSecretEnginePath, h.keyPath, hashString(alg)), map[string]interface{}{
 		"input":     base64.StdEncoding.EncodeToString(digest),
-		"prehashed": alg != crypto.Hash(0),
+		"prehashed": alg != crypto.Hash(0), // For ED25519, alg is 0, so prehashed is false as required by Vault.
 		"signature": fmt.Sprintf("%s%s", vaultDataPrefix, encodedSig),
 	})
 	if err != nil {
