@@ -11,7 +11,7 @@ require (
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/onsi/ginkgo/v2 v2.20.1
 	github.com/onsi/gomega v1.36.0
-	github.com/samber/lo v1.51.0
+	github.com/samber/lo v1.53.0
 	golang.org/x/crypto v0.46.0
 	k8s.io/utils v0.0.0-20240310230437-4693a0247e57
 )
