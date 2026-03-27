@@ -120,7 +120,7 @@ func generateKey(keyType KeyType) (crypto.Signer, error) {
 		_, priv, err := ed25519.GenerateKey(rand.Reader)
 		return priv, err
 	default:
-		panic(fmt.Sprintf("unsupported key type: %s", keyType))
+		panic(fmt.Sprintf("unsupported key type: %v", keyType))
 	}
 }
 
