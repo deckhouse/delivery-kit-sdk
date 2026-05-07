@@ -67,16 +67,9 @@ func newHashivaultClient(address, token, transitSecretEnginePath, keyResourceID 
 		return nil, fmt.Errorf("new vault client: %w", err)
 	}
 
-	var auth authenticator
-	if roleID, secretID := getVaultAuthRoleId(), getVaultAuthSecretId(); roleID != "" && secretID != "" {
-		auth = newAppRoleAuthenticator(roleID, secretID)
-	} else if jwtToken := getVaultAuthJwt(); jwtToken != "" {
-		auth = newJWTAuthenticator(jwtToken, getVaultAuthRole())
-	} else {
-		if token, err = getVaultToken(token); err != nil {
-			return nil, err
-		}
-		auth = newStaticAuthProvider(token)
+	auth, err := newAuthenticator(token)
+	if err != nil {
+		return nil, err
 	}
 
 	hvClient := &hashivaultClient{

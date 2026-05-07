@@ -19,6 +19,11 @@ func newAppRoleAuthenticator(roleID, secretID string) *appRoleAuthenticator {
 }
 
 func (a *appRoleAuthenticator) Login(client *vault.Client) error {
+	if a.isTokenValid() {
+		client.SetToken(a.tokenID)
+		return nil
+	}
+
 	loginData := map[string]interface{}{
 		"role_id":   a.roleID,
 		"secret_id": a.secretID,

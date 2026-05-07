@@ -39,6 +39,20 @@ func (b *baseAuthenticator) login(client *vault.Client, data map[string]interfac
 	return nil
 }
 
+// isTokenValid checks if the cached Vault token is still valid.
+// A safety margin of 30 seconds is used to avoid edge cases with token expiration.
+func (b *baseAuthenticator) isTokenValid() bool {
+	if b.tokenID == "" {
+		return false
+	}
+	if b.tokenTTL <= 0 {
+		return false
+	}
+	elapsed := time.Since(b.tokenIssuedAt)
+	// Re-authenticate if less than 30 seconds remain before expiration
+	return elapsed < b.tokenTTL-30*time.Second
+}
+
 func (b *baseAuthenticator) getAuthPath() string {
 	if authPath := getVaultAuthPath(); authPath != "" {
 		return authPath
