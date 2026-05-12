@@ -1,0 +1,40 @@
+name: Test Longterm
+
+on: [push]
+
+jobs:
+  test-longterm:
+    runs-on: ubuntu-22.04
+
+    # Job timeout as a safety net — actual spec timeout is managed by Ginkgo (--timeout)
+    timeout-minutes: 15
+
+    permissions:
+      contents: read
+      id-token: write
+
+    env:
+      VAULT_ADDR: ${{ secrets.VAULT_ADDR }}
+      VAULT_ROLE: ${{ secrets.VAULT_ROLE }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Use Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Install Task
+        uses: arduino/setup-task@v2
+
+      - name: Install project dependencies
+        run: task deps:install
+
+      # --timeout=15m sets a per-spec timeout in Ginkgo.
+      # If a spec exceeds this limit, Ginkgo fails only that spec
+      # and continues with the others.
+      - name: Test Longterm
+        run: |
+          task test:e2e labelFilter=longterm -- --timeout=15m
