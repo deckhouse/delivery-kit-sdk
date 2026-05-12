@@ -22,7 +22,7 @@ var longtermJwtPolicyData []byte
 var _ = Describe("longterm sign with real vault using local Vault server and WERF_ACTIONS_AUDIENCE", Label("e2e", "local", "longterm"), Serial, func() {
 	DescribeTable("sign image manifest multiple times using per request auth with WERF_ACTIONS_AUDIENCE on GitHub CI",
 		Serial,
-		func(ctx SpecContext, keyType cert_utils.KeyType, vaultTokenTTL time.Duration, signingExperimentTimeout, signingExperiment, signingAttemptInterval time.Duration) {
+		func(ctx SpecContext, keyType cert_utils.KeyType, vaultTokenTTL, signingExperimentTimeout, signingExperiment, signingAttemptInterval time.Duration) {
 			if os.Getenv("CI") != "true" ||
 				os.Getenv("ACTIONS_ID_TOKEN_REQUEST_URL") == "" ||
 				os.Getenv("ACTIONS_ID_TOKEN_REQUEST_TOKEN") == "" {

@@ -97,5 +97,4 @@ var _ = Describe("manifest with real vault using remote Vault server", Label("e2
 			true,
 		),
 	)
-
 })
