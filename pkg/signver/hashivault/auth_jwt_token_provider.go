@@ -67,7 +67,7 @@ func (p *actionsOidcJwtTokenProvider) GetToken() (string, error) {
 
 	req.Header.Set("Authorization", "Bearer "+p.requestToken)
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := authHTTPClient.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("failed to request OIDC token from GitHub Actions: %w", err)
 	}
