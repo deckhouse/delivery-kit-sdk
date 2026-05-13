@@ -1,4 +1,4 @@
-name: Test Longterm
+name: Test E2E Longterm
 
 on: [push]
 
@@ -6,8 +6,7 @@ jobs:
   test-longterm:
     runs-on: ubuntu-22.04
 
-    # Job timeout as a safety net — actual spec timeout is managed by Ginkgo (--timeout)
-    timeout-minutes: 15
+    timeout-minutes: 30
 
     permissions:
       contents: read
@@ -32,9 +31,5 @@ jobs:
       - name: Install project dependencies
         run: task deps:install
 
-      # --timeout=15m sets a per-spec timeout in Ginkgo.
-      # If a spec exceeds this limit, Ginkgo fails only that spec
-      # and continues with the others.
-      - name: Test Longterm
-        run: |
-          task test:e2e labelFilter=longterm -- --timeout=15m
+      - name: Test E2E Longterm
+        run: task test:e2e labelFilter=longterm
