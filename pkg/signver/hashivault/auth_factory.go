@@ -8,8 +8,11 @@ func newAuthenticator(token string) (authenticator, error) {
 	} else if audience := getActionsAudience(); audience != "" {
 		requestURL := getActionsIDTokenRequestURL()
 		requestToken := getActionsIDTokenRequestToken()
-		if requestURL == "" || requestToken == "" {
-			return nil, fmt.Errorf("WERF_ACTIONS_AUDIENCE is set but ACTIONS_ID_TOKEN_REQUEST_URL or ACTIONS_ID_TOKEN_REQUEST_TOKEN is missing")
+		if requestURL == "" {
+			return nil, fmt.Errorf("WERF_ACTIONS_AUDIENCE is set but ACTIONS_ID_TOKEN_REQUEST_URL is missing")
+		}
+		if requestToken == "" {
+			return nil, fmt.Errorf("WERF_ACTIONS_AUDIENCE is set but ACTIONS_ID_TOKEN_REQUEST_TOKEN is missing")
 		}
 		provider := newActionsOidcJwtTokenProvider(requestURL, requestToken, audience)
 		return newJWTAuthenticator(provider, getVaultAuthRole()), nil
