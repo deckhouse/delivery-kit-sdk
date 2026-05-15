@@ -43,18 +43,18 @@ tasks:
       - ginkgo {{if eq .parallel "true" }}-p{{end}} {{if .labelFilter}}--label-filter="{{.labelFilter}}"{{end}} -r -race {{.CLI_ARGS}} {{.paths}}
 
   test:unit:
-    desc: 'Run all unit tests.'
+    desc: "Run all unit tests."
     cmds:
       - task: test:ginkgo
         vars:
-          labelFilter: '!e2e'
+          labelFilter: "!e2e"
 
   test:e2e:
-    desc: 'Run e2e tests.'
+    desc: "Run e2e tests."
     cmds:
       - task: test:ginkgo
         vars:
-          labelFilter: 'e2e'
+          labelFilter: '{{.labelFilter | default "e2e"}}'
 
   deps:install:
     desc: "Install all dependencies"
