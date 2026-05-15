@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.0](https://github.com/deckhouse/delivery-kit-sdk/compare/v1.1.0...v1.2.0) (2026-05-15)
+
+
+### Features
+
+* **hashivault:** add GitHub Actions OIDC support and Vault token caching ([#83](https://github.com/deckhouse/delivery-kit-sdk/issues/83)) ([4f67b93](https://github.com/deckhouse/delivery-kit-sdk/commit/4f67b938fdc8eac4bdc78e8378c38e26610812bf))
+
 ## [1.1.0](https://github.com/deckhouse/delivery-kit-sdk/compare/v1.0.0...v1.1.0) (2026-03-27)
 
 
