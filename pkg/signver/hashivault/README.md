@@ -14,19 +14,62 @@ This package implements loading keys from Vault server.
 Before requesting server with "sing" / "verify" operations
 you need to get an **access token** via one of next authentication methods.
 
-| Name                 | Description                          | Environment Variables                                  | URI (default)     | Renewal token | Refreshing token   |
-|----------------------|--------------------------------------|--------------------------------------------------------|-------------------|---------------|--------------------|
-| Static Token         | Explicitly sets access token         | `VAULT_TOKEN`                                          | Not used          | Not used      | Not used           |
-| App Role             | Sets credentials to get access token | `WERF_VAULT_AUTH_ROLE_ID`, `WERF_VAULT_AUTH_SECRET_ID` | `/auth/ar/login`  | Not used      | On every operation |
-| JSON Web Token (JWT) | Sets credentials to get access token | `WERF_VAULT_AUTH_JWT`, `WERF_VAULT_AUTH_ROLE`          | `/auth/jwt/login` | Not used      | On every operation |
+| Name                       | Description                          | Environment Variables                                                                                                                                                             | URI (default)     | Renewal token | Refreshing token                                                    |
+|----------------------------|--------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------|---------------|---------------------------------------------------------------------|
+| Static Token               | Explicitly sets access token         | `VAULT_TOKEN`                                                                                                                                                                     | Not used          | Not used      | Not used                                                            |
+| App Role                   | Sets credentials to get access token | `WERF_VAULT_AUTH_ROLE_ID`, `WERF_VAULT_AUTH_SECRET_ID`                                                                                                                            | `/auth/ar/login`  | Not used      | Cached until Vault token expiry                                     |
+| JSON Web Token (JWT)       | Sets credentials to get access token | `WERF_VAULT_AUTH_JWT`, `WERF_VAULT_AUTH_ROLE`                                                                                                                                     | `/auth/jwt/login` | Not used      | Cached until Vault token expiry                                     |
+| GitHub Actions OIDC (JWT)  | Obtains a fresh JWT from GitHub OIDC endpoint on each login | `WERF_ACTIONS_AUDIENCE`, `WERF_VAULT_AUTH_ROLE`<br/>(uses GitHub-provided `ACTIONS_ID_TOKEN_REQUEST_URL` and `ACTIONS_ID_TOKEN_REQUEST_TOKEN`) | `/auth/jwt/login` | Not used      | Fresh JWT from OIDC endpoint, cached until Vault token expiry      |
 
 If auth method use default URI it could be configured with `WERF_VAULT_AUTH_PATH` environment variable. 
 
 For example, JWT auth method uses `/auth/jwt/login` by default. 
 So setting `WERF_VAULT_AUTH_PATH=github` we change the URI to `/auth/github/login`.
 
-### Examples
+### Additional environment variables for GitHub Actions OIDC
 
-- [Static Token configuration](https://github.com/deckhouse/delivery-kit-sdk/blob/f92488100f2bcfa61ecd8744ee58c04342e3d7d8/pkg/signature/image/manifest_vault_test.go#L48)
-- [App Role configuration](https://github.com/deckhouse/delivery-kit-sdk/blob/f92488100f2bcfa61ecd8744ee58c04342e3d7d8/pkg/signature/image/manifest_vault_test.go#L249)
-- [JSON Web Token configuration](https://github.com/deckhouse/delivery-kit-sdk/blob/f92488100f2bcfa61ecd8744ee58c04342e3d7d8/pkg/signature/image/manifest_vault_test.go#L203)
+When `WERF_ACTIONS_AUDIENCE` is set, the client requests a **fresh** OIDC token from the GitHub Actions OIDC endpoint
+(`ACTIONS_ID_TOKEN_REQUEST_URL`) on each Vault login, using `ACTIONS_ID_TOKEN_REQUEST_TOKEN` for authorization.
+This solves the 10-minute token expiry issue in GitHub Actions by obtaining a new, valid JWT before every login.
+
+| Environment Variable            | Description                                                              | Required                        |
+|---------------------------------|--------------------------------------------------------------------------|---------------------------------|
+| `WERF_ACTIONS_AUDIENCE`        | Audience for the GitHub OIDC token request. **Activates** the OIDC flow. | Yes (triggers the flow)         |
+| `ACTIONS_ID_TOKEN_REQUEST_URL` | GitHub OIDC endpoint URL (predefined by GitHub Actions).                 | Yes (error if missing)          |
+| `ACTIONS_ID_TOKEN_REQUEST_TOKEN` | Bearer token for OIDC endpoint (predefined by GitHub Actions).         | Yes (error if missing)          |
+
+> **Note:** `ACTIONS_ID_TOKEN_REQUEST_URL` and `ACTIONS_ID_TOKEN_REQUEST_TOKEN` are automatically
+> available in GitHub Actions jobs with `id-token: write` permission.
+> See [GitHub OIDC documentation](https://docs.github.com/en/actions/security-guides/automatic-token-authentication#oidc-token-permissions).
+
+### Authentication flow
+
+All authenticators that obtain a Vault token via login (`jwtAuthenticator`, `appRoleAuthenticator`) cache the
+Vault token and reuse it until it expires. A 30-second safety margin is used before expiration to avoid edge cases.
+
+#### Optimal case — cached Vault token is still valid
+
+```
+sign() / verify() / public() → auth.Login()
+  ├─ isTokenValid() = true → SetToken(cached_token_id) → return nil
+  └─ Vault operation (sign / verify / read key)
+```
+
+No extra HTTP requests between Vault operations, only the operation itself.
+
+#### Vault token expired
+
+```
+sign() / verify() / public() → auth.Login()
+  ├─ isTokenValid() = false → obtain new credentials
+  │   ├─ AppRole: role_id + secret_id (no additional calls)
+  │   ├─ JWT (static): cached JWT from WERF_VAULT_AUTH_JWT (no additional calls)
+  │   └─ JWT (GitHub Actions): GET ACTIONS_ID_TOKEN_REQUEST_URL → fresh JWT
+  ├─ POST /auth/jwt/login (or /auth/ar/login) → new Vault token
+  │  cached as token_id with TTL from response
+  └─ Vault operation (sign / verify / read key)
+```
+
+When the Vault token expires, the client re-authenticates, obtains a fresh Vault token, and caches it.
+For GitHub Actions, a fresh OIDC token is first requested from the GitHub OIDC endpoint,
+ensuring it never expires regardless of the 10-minute GitHub OIDC token lifetime.

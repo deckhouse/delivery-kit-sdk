@@ -23,3 +23,15 @@ func getVaultAuthJwt() string {
 func getVaultAuthPath() string {
 	return env.GetString("WERF_VAULT_AUTH_PATH", "")
 }
+
+func getActionsAudience() string {
+	return env.GetString("WERF_ACTIONS_AUDIENCE", "")
+}
+
+func getActionsIDTokenRequestURL() string {
+	return env.GetString("ACTIONS_ID_TOKEN_REQUEST_URL", "")
+}
+
+func getActionsIDTokenRequestToken() string {
+	return env.GetString("ACTIONS_ID_TOKEN_REQUEST_TOKEN", "")
+}
