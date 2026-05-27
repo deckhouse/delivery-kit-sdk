@@ -39,6 +39,10 @@ type hashivaultClient struct {
 	keyCache                *ttlcache.Cache[string, crypto.PublicKey]
 	keyVersion              uint64
 	auth                    authenticator
+	// For the ED25519 algorithm, the standard (RFC 8032) implies signing a message
+	// without external hashing (disable precashing in Vault terms).
+	isEd25519        bool
+	originalHashFunc crypto.Hash
 }
 
 const (
@@ -202,9 +206,9 @@ func (h *hashivaultClient) sign(digest []byte, alg crypto.Hash, opts ...signatur
 		return nil, fmt.Errorf("failed to authenticate: %w", err)
 	}
 
-	signResult, err := client.Write(fmt.Sprintf("/%s/sign/%s%s", h.transitSecretEnginePath, h.keyPath, hashString(alg)), map[string]interface{}{
+	signResult, err := client.Write(fmt.Sprintf("/%s/sign/%s%s", h.transitSecretEnginePath, h.keyPath, hashString(h.originalHashFunc)), map[string]interface{}{
 		"input":               base64.StdEncoding.Strict().EncodeToString(digest),
-		"prehashed":           alg != crypto.Hash(0), // For ED25519, alg is 0, so prehashed is false as required by Vault.
+		"prehashed":           !h.isEd25519,
 		"key_version":         keyVersion,
 		"signature_algorithm": "pkcs1v15",
 	})
@@ -238,9 +242,9 @@ func (h *hashivaultClient) verify(sig, digest []byte, alg crypto.Hash, opts ...s
 		return fmt.Errorf("failed to authenticate: %w", err)
 	}
 
-	result, err := client.Write(fmt.Sprintf("/%s/verify/%s/%s", h.transitSecretEnginePath, h.keyPath, hashString(alg)), map[string]interface{}{
+	result, err := client.Write(fmt.Sprintf("/%s/verify/%s/%s", h.transitSecretEnginePath, h.keyPath, hashString(h.originalHashFunc)), map[string]interface{}{
 		"input":     base64.StdEncoding.EncodeToString(digest),
-		"prehashed": alg != crypto.Hash(0), // For ED25519, alg is 0, so prehashed is false as required by Vault.
+		"prehashed": !h.isEd25519,
 		"signature": fmt.Sprintf("%s%s", vaultDataPrefix, encodedSig),
 	})
 	if err != nil {
