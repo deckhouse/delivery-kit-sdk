@@ -40,8 +40,7 @@ type hashivaultClient struct {
 	keyVersion              uint64
 	auth                    authenticator
 	// For the ED25519 algorithm, the standard (RFC 8032) implies signing a message
-	// without external hashing (disable precashing in Vault terms).
-	isEd25519        bool
+	// without external hashing (disable prehashing in Vault terms).
 	originalHashFunc crypto.Hash
 }
 
@@ -50,7 +49,7 @@ const (
 	cacheKey = "signer"
 )
 
-func newHashivaultClient(address, token, transitSecretEnginePath, keyResourceID string, keyVersion uint64) (*hashivaultClient, error) {
+func newHashivaultClient(address, token, transitSecretEnginePath, keyResourceID string, keyVersion uint64, originalHashFunc crypto.Hash) (*hashivaultClient, error) {
 	if err := validReference(keyResourceID); err != nil {
 		return nil, err
 	}
@@ -85,6 +84,8 @@ func newHashivaultClient(address, token, transitSecretEnginePath, keyResourceID 
 		),
 		keyVersion: keyVersion,
 		auth:       auth,
+		// Vault ACL path compatibility with "cosign attest" requires original hash function
+		originalHashFunc: originalHashFunc,
 	}
 
 	return hvClient, nil
@@ -207,8 +208,9 @@ func (h *hashivaultClient) sign(digest []byte, alg crypto.Hash, opts ...signatur
 	}
 
 	signResult, err := client.Write(fmt.Sprintf("/%s/sign/%s%s", h.transitSecretEnginePath, h.keyPath, hashString(h.originalHashFunc)), map[string]interface{}{
-		"input":               base64.StdEncoding.Strict().EncodeToString(digest),
-		"prehashed":           !h.isEd25519,
+		"input": base64.StdEncoding.Strict().EncodeToString(digest),
+		// ED25519 requires to disable pre-hashing, Vault Transit signs the raw message.
+		"prehashed":           !isEd25519Hash(alg),
 		"key_version":         keyVersion,
 		"signature_algorithm": "pkcs1v15",
 	})
@@ -243,8 +245,9 @@ func (h *hashivaultClient) verify(sig, digest []byte, alg crypto.Hash, opts ...s
 	}
 
 	result, err := client.Write(fmt.Sprintf("/%s/verify/%s/%s", h.transitSecretEnginePath, h.keyPath, hashString(h.originalHashFunc)), map[string]interface{}{
-		"input":     base64.StdEncoding.EncodeToString(digest),
-		"prehashed": !h.isEd25519,
+		"input": base64.StdEncoding.EncodeToString(digest),
+		// ED25519 requires to disable pre-hashing, Vault Transit signs the raw message.
+		"prehashed": !isEd25519Hash(alg),
 		"signature": fmt.Sprintf("%s%s", vaultDataPrefix, encodedSig),
 	})
 	if err != nil {
