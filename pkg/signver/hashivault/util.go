@@ -68,3 +68,7 @@ func hashString(h crypto.Hash) string {
 	}
 	return hashStr
 }
+
+func isEd25519Hash(h crypto.Hash) bool {
+	return h == crypto.Hash(0)
+}

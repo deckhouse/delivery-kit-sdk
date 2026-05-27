@@ -71,12 +71,6 @@ type SignerVerifier struct {
 func LoadSignerVerifier(referenceStr string, hashFunc crypto.Hash, opts ...signature.RPCOption) (*SignerVerifier, error) {
 	h := &SignerVerifier{}
 
-	var err error
-	h.client, err = newHashivaultClient("", "", "", referenceStr, 0)
-	if err != nil {
-		return nil, err
-	}
-
 	switch hashFunc {
 	case 0, crypto.SHA224, crypto.SHA256, crypto.SHA384, crypto.SHA512:
 		h.hashFunc = hashFunc
@@ -84,13 +78,18 @@ func LoadSignerVerifier(referenceStr string, hashFunc crypto.Hash, opts ...signa
 		return nil, errors.New("hash function not supported by Hashivault")
 	}
 
+	var err error
+	h.client, err = newHashivaultClient("", "", "", referenceStr, 0, hashFunc)
+	if err != nil {
+		return nil, err
+	}
+
 	pub, err := h.PublicKey()
 	if err != nil {
 		return nil, fmt.Errorf("getting public key to determine algorithm: %w", err)
 	}
 
-	// Ed25519 in Vault Transit expects the raw message, so we must disable
-	// automatic hashing by setting hashFunc to crypto.Hash(0).
+	// ED25519 requires to disable pre-hashing, Vault Transit signs the raw message.
 	if _, ok := pub.(ed25519.PublicKey); ok {
 		h.hashFunc = crypto.Hash(0)
 	}
