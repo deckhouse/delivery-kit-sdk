@@ -7,7 +7,7 @@ require (
 	github.com/google/certificate-transparency-go v1.1.7
 	github.com/google/go-containerregistry v0.20.1
 	github.com/hashicorp/vault/api v1.14.0
-	github.com/jellydator/ttlcache/v3 v3.4.0
+	github.com/jellydator/ttlcache/v3 v3.4.1
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/onsi/ginkgo/v2 v2.20.1
 	github.com/onsi/gomega v1.36.0
