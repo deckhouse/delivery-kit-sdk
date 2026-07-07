@@ -1,6 +1,6 @@
 module github.com/deckhouse/delivery-kit-sdk
 
-go 1.24.10
+go 1.25
 
 require (
 	github.com/golang-jwt/jwt/v5 v5.3.0
@@ -13,7 +13,7 @@ require (
 	github.com/onsi/gomega v1.36.0
 	github.com/samber/lo v1.51.0
 	golang.org/x/crypto v0.46.0
-	k8s.io/utils v0.0.0-20240310230437-4693a0247e57
+	k8s.io/utils v0.0.0-20260707023825-cf1189d6abe3
 )
 
 require (
