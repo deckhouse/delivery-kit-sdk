@@ -42,6 +42,52 @@ This solves the 10-minute token expiry issue in GitHub Actions by obtaining a ne
 > available in GitHub Actions jobs with `id-token: write` permission.
 > See [GitHub OIDC documentation](https://docs.github.com/en/actions/security-guides/automatic-token-authentication#oidc-token-permissions).
 
+## Programmatic configuration (`VaultOpts`)
+
+Besides environment variables, the loader can be configured in code through
+`KeyOpts.SignerVerifierOpts.VaultOpts` passed to `signver.NewSignerVerifier`.
+`VaultOpts` is defined in this package:
+
+| Field                     | Env equivalent                                       | Kind      |
+|---------------------------|------------------------------------------------------|-----------|
+| `Address`                 | `VAULT_ADDR`                                         | Transport |
+| `TransitSecretEnginePath` | `TRANSIT_SECRET_ENGINE_PATH`                         | Transport |
+| `Token`                   | `VAULT_TOKEN`                                        | Auth      |
+| `AuthRoleID`              | `WERF_VAULT_AUTH_ROLE_ID` (or `VAULT_ROLE_ID`)       | Auth      |
+| `AuthSecretID`            | `WERF_VAULT_AUTH_SECRET_ID` (or `VAULT_SECRET_ID`)   | Auth      |
+| `AuthRole`                | `WERF_VAULT_AUTH_ROLE`                               | Auth      |
+| `AuthJWT`                 | `WERF_VAULT_AUTH_JWT`                                | Auth      |
+| `AuthPath`                | `WERF_VAULT_AUTH_PATH`                               | Auth      |
+| `Audience`                | `WERF_ACTIONS_AUDIENCE`                              | Auth      |
+
+### Transport vs. auth options
+
+Transport options (`Address`, `TransitSecretEnginePath`) are always resolved
+independently, falling back to their environment variables and defaults when
+left empty. They never affect how authentication credentials are sourced.
+
+The **authentication source** is selected all-or-nothing: if no auth field is
+set, credentials are read from the environment (identical to the env-only
+behavior above); if **any** auth field is set, credentials are taken **only**
+from `VaultOpts` and environment auth variables are ignored. This lets you, for
+example, set `Address` in code while still authenticating from CI environment
+variables.
+
+The selected auth method follows the same priority as the env flow: AppRole
+(both `AuthRoleID` and `AuthSecretID`) > GitHub Actions OIDC (`Audience`) >
+static JWT (`AuthJWT`) > static token (`Token`). `AuthPath` takes precedence
+over `WERF_VAULT_AUTH_PATH`, and the `ar` / `jwt` defaults still apply when
+unset.
+
+> **Note:** in opts-mode, incomplete auth options (for example, `AuthRoleID`
+> without `AuthSecretID`) return an `incomplete Vault auth options` error. The
+> loader does **not** silently fall back to `VAULT_TOKEN` or `~/.vault-token`,
+> so it never signs under an unexpected host identity.
+>
+> GitHub Actions OIDC via `Audience` still reads `ACTIONS_ID_TOKEN_REQUEST_URL`
+> and `ACTIONS_ID_TOKEN_REQUEST_TOKEN` from the environment, as those are
+> injected by GitHub Actions.
+
 ### Authentication flow
 
 All authenticators that obtain a Vault token via login (`jwtAuthenticator`, `appRoleAuthenticator`) cache the
