@@ -4,40 +4,24 @@ import (
 	"fmt"
 )
 
-type authenticatorSettings struct {
-	token, roleID, secretID, authPath, audience, authRole, jwtToken string
-	fromEnv                                                         bool
+func newAuthenticator(opts VaultOpts) (authenticator, error) {
+	if opts.Auth == nil {
+		return newAuthenticatorFromEnv()
+	}
+	return newAuthenticatorFromOpts(opts.Auth)
 }
 
-func newAuthSettings(opts VaultOpts) authenticatorSettings {
-	if !opts.hasAuthOpts() {
-		return authenticatorSettings{
-			roleID:   getVaultAuthRoleId(),
-			secretID: getVaultAuthSecretId(),
-			authPath: getVaultAuthPath(),
-			audience: getActionsAudience(),
-			authRole: getVaultAuthRole(),
-			jwtToken: getVaultAuthJwt(),
-			fromEnv:  true,
-		}
-	}
+func newAuthenticatorFromEnv() (authenticator, error) {
+	roleID := getVaultAuthRoleId()
+	secretID := getVaultAuthSecretId()
+	authPath := getVaultAuthPath()
+	audience := getActionsAudience()
+	authRole := getVaultAuthRole()
+	jwtToken := getVaultAuthJwt()
 
-	return authenticatorSettings{
-		token:    opts.Token,
-		roleID:   opts.AuthRoleID,
-		secretID: opts.AuthSecretID,
-		authPath: opts.AuthPath,
-		authRole: opts.AuthRole,
-		jwtToken: opts.AuthJWT,
-		audience: opts.Audience,
-		fromEnv:  false,
-	}
-}
-
-func newAuthenticator(settings authenticatorSettings) (authenticator, error) {
-	if settings.roleID != "" && settings.secretID != "" {
-		return newAppRoleAuthenticator(settings.roleID, settings.secretID, settings.authPath), nil
-	} else if settings.audience != "" {
+	if roleID != "" && secretID != "" {
+		return newAppRoleAuthenticator(roleID, secretID, authPath), nil
+	} else if audience != "" {
 		requestURL := getActionsIDTokenRequestURL()
 		requestToken := getActionsIDTokenRequestToken()
 		if requestURL == "" {
@@ -46,23 +30,84 @@ func newAuthenticator(settings authenticatorSettings) (authenticator, error) {
 		if requestToken == "" {
 			return nil, fmt.Errorf("WERF_ACTIONS_AUDIENCE is set but ACTIONS_ID_TOKEN_REQUEST_TOKEN is missing")
 		}
-		provider := newActionsOidcJwtTokenProvider(requestURL, requestToken, settings.audience)
-		return newJWTAuthenticator(provider, settings.authRole, settings.authPath), nil
-	} else if settings.jwtToken != "" {
-		provider := newStaticJwtTokenProvider(settings.jwtToken)
-		return newJWTAuthenticator(provider, settings.authRole, settings.authPath), nil
+		provider := newActionsOidcJwtTokenProvider(requestURL, requestToken, audience)
+		return newJWTAuthenticator(provider, authRole, authPath), nil
+	} else if jwtToken != "" {
+		provider := newStaticJwtTokenProvider(jwtToken)
+		return newJWTAuthenticator(provider, authRole, authPath), nil
 	}
 
-	if !settings.fromEnv {
-		if settings.token == "" {
-			return nil, fmt.Errorf("incomplete Vault auth options: provide a complete AppRole (role id + secret id), a JWT, an OIDC audience, or a token")
-		}
-		return newStaticAuthProvider(settings.token), nil
-	}
-
-	token, err := getVaultToken(settings.token)
+	token, err := getVaultToken("")
 	if err != nil {
 		return nil, err
 	}
 	return newStaticAuthProvider(token), nil
+}
+
+func newAuthenticatorFromOpts(auth *VaultAuth) (authenticator, error) {
+	if err := auth.validate(); err != nil {
+		return nil, err
+	}
+
+	switch {
+	case auth.AppRole != nil:
+		ar := auth.AppRole
+		if ar.RoleID == "" || ar.SecretID == "" {
+			return nil, fmt.Errorf("incomplete Vault auth options: AppRole requires both RoleID and SecretID")
+		}
+		return newAppRoleAuthenticator(ar.RoleID, ar.SecretID, ar.Path), nil
+	case auth.OIDC != nil:
+		o := auth.OIDC
+		if o.Audience == "" {
+			return nil, fmt.Errorf("incomplete Vault auth options: OIDC requires Audience")
+		}
+		requestURL := getActionsIDTokenRequestURL()
+		requestToken := getActionsIDTokenRequestToken()
+		if requestURL == "" {
+			return nil, fmt.Errorf("OIDC audience is configured but ACTIONS_ID_TOKEN_REQUEST_URL is missing")
+		}
+		if requestToken == "" {
+			return nil, fmt.Errorf("OIDC audience is configured but ACTIONS_ID_TOKEN_REQUEST_TOKEN is missing")
+		}
+		provider := newActionsOidcJwtTokenProvider(requestURL, requestToken, o.Audience)
+		return newJWTAuthenticator(provider, o.Role, o.Path), nil
+	case auth.JWT != nil:
+		j := auth.JWT
+		if j.JWT == "" {
+			return nil, fmt.Errorf("incomplete Vault auth options: JWT requires JWT")
+		}
+		provider := newStaticJwtTokenProvider(j.JWT)
+		return newJWTAuthenticator(provider, j.Role, j.Path), nil
+	case auth.Token != nil:
+		if auth.Token.Token == "" {
+			return nil, fmt.Errorf("incomplete Vault auth options: Token requires Token")
+		}
+		return newStaticAuthProvider(auth.Token.Token), nil
+	}
+
+	return nil, fmt.Errorf("incomplete Vault auth options: set exactly one of AppRole/OIDC/JWT/Token")
+}
+
+// validate ensures exactly one auth method variant is set.
+func (a *VaultAuth) validate() error {
+	n := 0
+	if a.AppRole != nil {
+		n++
+	}
+	if a.OIDC != nil {
+		n++
+	}
+	if a.JWT != nil {
+		n++
+	}
+	if a.Token != nil {
+		n++
+	}
+	if n == 0 {
+		return fmt.Errorf("incomplete Vault auth options: set exactly one of AppRole/OIDC/JWT/Token")
+	}
+	if n > 1 {
+		return fmt.Errorf("ambiguous Vault auth options: multiple auth methods set, set exactly one of AppRole/OIDC/JWT/Token")
+	}
+	return nil
 }

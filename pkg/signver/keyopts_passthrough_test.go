@@ -19,7 +19,11 @@ var _ = Describe("KeyOpts SignerVerifierOpts passthrough", func() {
 		_, err := signver.NewSignerVerifier(ctx, "", "", signver.KeyOpts{
 			KeyRef: hashivault.ReferenceScheme + "some-key",
 			SignerVerifierOpts: signver.SignerVerifierOpts{
-				VaultOpts: hashivault.VaultOpts{AuthRoleID: "role-without-secret"},
+				VaultOpts: hashivault.VaultOpts{
+					Auth: &hashivault.VaultAuth{
+						AppRole: &hashivault.AppRoleAuth{RoleID: "role-without-secret"},
+					},
+				},
 			},
 		})
 		Expect(err).To(HaveOccurred())
@@ -30,7 +34,11 @@ var _ = Describe("KeyOpts SignerVerifierOpts passthrough", func() {
 		_, err := signver.NewSignerVerifier(ctx, "", "", signver.KeyOpts{
 			KeyRef: "pkcs11:some-token",
 			SignerVerifierOpts: signver.SignerVerifierOpts{
-				VaultOpts: hashivault.VaultOpts{AuthRoleID: "role-without-secret"},
+				VaultOpts: hashivault.VaultOpts{
+					Auth: &hashivault.VaultAuth{
+						AppRole: &hashivault.AppRoleAuth{RoleID: "role-without-secret"},
+					},
+				},
 			},
 		})
 		Expect(err).To(HaveOccurred())

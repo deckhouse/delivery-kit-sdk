@@ -87,10 +87,7 @@ func loadSignerVerifier(referenceStr string, hashFunc crypto.Hash, opts VaultOpt
 		return nil, errors.New("hash function not supported by Hashivault")
 	}
 
-	authSettings := newAuthSettings(opts)
-
-	var err error
-	auth, err := newAuthenticator(authSettings)
+	auth, err := newAuthenticator(opts)
 	if err != nil {
 		return nil, err
 	}

@@ -159,7 +159,7 @@ func TestNewAuthenticatorEnv(t *testing.T) {
 				t.Setenv(k, v)
 			}
 
-			auth, err := newAuthenticator(newAuthSettings(VaultOpts{}))
+			auth, err := newAuthenticator(VaultOpts{})
 			if err != nil {
 				t.Fatalf("newAuthenticator() unexpected error: %v", err)
 			}
@@ -169,7 +169,8 @@ func TestNewAuthenticatorEnv(t *testing.T) {
 }
 
 // TestNewAuthenticatorEnvTransportOnly proves that transport-only options
-// (Address, TransitSecretEnginePath) do not switch off the env auth source.
+// (Address, TransitSecretEnginePath) do not switch off the env auth source:
+// with Auth == nil, credentials still come from the environment.
 func TestNewAuthenticatorEnvTransportOnly(t *testing.T) {
 	transportOpts := []struct {
 		name string
@@ -186,11 +187,7 @@ func TestNewAuthenticatorEnvTransportOnly(t *testing.T) {
 			t.Setenv("VAULT_ROLE_ID", "env-role")
 			t.Setenv("VAULT_SECRET_ID", "env-secret")
 
-			settings := newAuthSettings(tt.opts)
-			if settings.fromEnv != true {
-				t.Fatalf("transport-only opts must keep env source, got fromEnv=%v", settings.fromEnv)
-			}
-			auth, err := newAuthenticator(settings)
+			auth, err := newAuthenticator(tt.opts)
 			if err != nil {
 				t.Fatalf("newAuthenticator() unexpected error: %v", err)
 			}
@@ -199,8 +196,8 @@ func TestNewAuthenticatorEnvTransportOnly(t *testing.T) {
 	}
 }
 
-// TestNewAuthenticatorOpts covers the programmatic auth source: any non-empty
-// auth field switches selection to VaultOpts and ignores env credentials.
+// TestNewAuthenticatorOpts covers the programmatic auth source: the auth method
+// is selected explicitly via VaultOpts.Auth and env credentials are ignored.
 func TestNewAuthenticatorOpts(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -210,7 +207,7 @@ func TestNewAuthenticatorOpts(t *testing.T) {
 	}{
 		{
 			name: "approle from opts ignores env credentials",
-			opts: VaultOpts{AuthRoleID: "opts-role", AuthSecretID: "opts-secret"},
+			opts: VaultOpts{Auth: &VaultAuth{AppRole: &AppRoleAuth{RoleID: "opts-role", SecretID: "opts-secret"}}},
 			env:  map[string]string{"VAULT_ROLE_ID": "env-role", "VAULT_SECRET_ID": "env-secret"},
 			verify: func(t *testing.T, a authenticator) {
 				assertAppRole(t, a, "opts-role", "opts-secret", "ar")
@@ -218,7 +215,7 @@ func TestNewAuthenticatorOpts(t *testing.T) {
 		},
 		{
 			name: "oidc from opts audience",
-			opts: VaultOpts{Audience: "opts-audience", AuthRole: "opts-role"},
+			opts: VaultOpts{Auth: &VaultAuth{OIDC: &OIDCAuth{Audience: "opts-audience", Role: "opts-role"}}},
 			env: map[string]string{
 				"ACTIONS_ID_TOKEN_REQUEST_URL":   "https://example.com/token",
 				"ACTIONS_ID_TOKEN_REQUEST_TOKEN": "request-token",
@@ -227,12 +224,12 @@ func TestNewAuthenticatorOpts(t *testing.T) {
 		},
 		{
 			name:   "static jwt from opts",
-			opts:   VaultOpts{AuthJWT: "opts-jwt", AuthRole: "opts-role"},
+			opts:   VaultOpts{Auth: &VaultAuth{JWT: &JWTAuth{JWT: "opts-jwt", Role: "opts-role"}}},
 			verify: func(t *testing.T, a authenticator) { assertStaticJWT(t, a, "opts-role", "jwt") },
 		},
 		{
 			name:   "static token from opts",
-			opts:   VaultOpts{Token: "opts-token"},
+			opts:   VaultOpts{Auth: &VaultAuth{Token: &TokenAuth{Token: "opts-token"}}},
 			verify: func(t *testing.T, a authenticator) { assertStaticToken(t, a, "opts-token") },
 		},
 	}
@@ -244,7 +241,7 @@ func TestNewAuthenticatorOpts(t *testing.T) {
 				t.Setenv(k, v)
 			}
 
-			auth, err := newAuthenticator(newAuthSettings(tt.opts))
+			auth, err := newAuthenticator(tt.opts)
 			if err != nil {
 				t.Fatalf("newAuthenticator() unexpected error: %v", err)
 			}
@@ -260,10 +257,12 @@ func TestNewAuthenticatorOptsIncomplete(t *testing.T) {
 		name string
 		opts VaultOpts
 	}{
-		{"role id without secret id", VaultOpts{AuthRoleID: "opts-role"}},
-		{"secret id without role id", VaultOpts{AuthSecretID: "opts-secret"}},
-		{"auth path only", VaultOpts{AuthPath: "custom"}},
-		{"auth role only", VaultOpts{AuthRole: "opts-role"}},
+		{"approle role id without secret id", VaultOpts{Auth: &VaultAuth{AppRole: &AppRoleAuth{RoleID: "opts-role"}}}},
+		{"approle secret id without role id", VaultOpts{Auth: &VaultAuth{AppRole: &AppRoleAuth{SecretID: "opts-secret"}}}},
+		{"oidc without audience", VaultOpts{Auth: &VaultAuth{OIDC: &OIDCAuth{Role: "opts-role"}}}},
+		{"jwt without token", VaultOpts{Auth: &VaultAuth{JWT: &JWTAuth{Role: "opts-role"}}}},
+		{"token without value", VaultOpts{Auth: &VaultAuth{Token: &TokenAuth{}}}},
+		{"empty auth with no method", VaultOpts{Auth: &VaultAuth{}}},
 	}
 
 	for _, tt := range tests {
@@ -272,7 +271,7 @@ func TestNewAuthenticatorOptsIncomplete(t *testing.T) {
 			// A host token that MUST NOT be picked up in opts-mode.
 			t.Setenv("VAULT_TOKEN", "host-token-must-not-be-used")
 
-			_, err := newAuthenticator(newAuthSettings(tt.opts))
+			_, err := newAuthenticator(tt.opts)
 			if err == nil {
 				t.Fatal("expected error for incomplete opts, got nil")
 			}
@@ -283,19 +282,83 @@ func TestNewAuthenticatorOptsIncomplete(t *testing.T) {
 	}
 }
 
+// TestNewAuthenticatorOptsMultiple proves that setting more than one auth
+// method in VaultOpts.Auth is an explicit configuration error, without any
+// silent priority-based selection.
+func TestNewAuthenticatorOptsMultiple(t *testing.T) {
+	tests := []struct {
+		name string
+		auth *VaultAuth
+	}{
+		{"approle and token", &VaultAuth{AppRole: &AppRoleAuth{RoleID: "r", SecretID: "s"}, Token: &TokenAuth{Token: "t"}}},
+		{"jwt and oidc", &VaultAuth{JWT: &JWTAuth{JWT: "j"}, OIDC: &OIDCAuth{Audience: "a"}}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			clearVaultEnv(t)
+			t.Setenv("VAULT_TOKEN", "host-token-must-not-be-used")
+
+			_, err := newAuthenticator(VaultOpts{Auth: tt.auth})
+			if err == nil {
+				t.Fatal("expected error for multiple auth methods, got nil")
+			}
+			if !strings.Contains(err.Error(), "multiple auth methods set") {
+				t.Errorf("error = %q, want it to contain %q", err.Error(), "multiple auth methods set")
+			}
+		})
+	}
+}
+
+// TestNewAuthenticatorOptsOIDCMissingActionsEnv proves that opts-mode OIDC
+// errors when the GitHub Actions request variables are missing, and that the
+// message does not reference the WERF_ACTIONS_AUDIENCE env variable since the
+// audience came from code.
+func TestNewAuthenticatorOptsOIDCMissingActionsEnv(t *testing.T) {
+	tests := []struct {
+		name string
+		env  map[string]string
+	}{
+		{"missing request url", map[string]string{"ACTIONS_ID_TOKEN_REQUEST_TOKEN": "request-token"}},
+		{"missing request token", map[string]string{"ACTIONS_ID_TOKEN_REQUEST_URL": "https://example.com/token"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			clearVaultEnv(t)
+			for k, v := range tt.env {
+				t.Setenv(k, v)
+			}
+
+			_, err := newAuthenticator(VaultOpts{Auth: &VaultAuth{OIDC: &OIDCAuth{Audience: "opts-audience"}}})
+			if err == nil {
+				t.Fatal("expected error for missing Actions OIDC env, got nil")
+			}
+			if !strings.Contains(err.Error(), "OIDC audience is configured") {
+				t.Errorf("error = %q, want it to contain %q", err.Error(), "OIDC audience is configured")
+			}
+			if strings.Contains(err.Error(), "WERF_ACTIONS_AUDIENCE") {
+				t.Errorf("error = %q, must not reference WERF_ACTIONS_AUDIENCE in opts-mode", err.Error())
+			}
+		})
+	}
+}
+
 // TestNewAuthenticatorAuthPath verifies auth-path resolution for AppRole and
-// JWT: VaultOpts.AuthPath takes precedence over WERF_VAULT_AUTH_PATH, and the
-// "ar"/"jwt" defaults apply when no path is set.
+// JWT: VaultOpts auth Path takes precedence over WERF_VAULT_AUTH_PATH in
+// env-mode, and the "ar"/"jwt" defaults apply when no path is set.
 func TestNewAuthenticatorAuthPath(t *testing.T) {
 	t.Run("opts auth path wins over env for approle", func(t *testing.T) {
 		clearVaultEnv(t)
 		t.Setenv("WERF_VAULT_AUTH_PATH", "env-path")
 
-		auth, err := newAuthenticator(newAuthSettings(VaultOpts{
-			AuthRoleID:   "opts-role",
-			AuthSecretID: "opts-secret",
-			AuthPath:     "opts-path",
-		}))
+		auth, err := newAuthenticator(VaultOpts{
+			Auth: &VaultAuth{AppRole: &AppRoleAuth{
+				RoleID:   "opts-role",
+				SecretID: "opts-secret",
+				Path:     "opts-path",
+			}},
+		})
 		if err != nil {
 			t.Fatalf("newAuthenticator() unexpected error: %v", err)
 		}
@@ -307,7 +370,7 @@ func TestNewAuthenticatorAuthPath(t *testing.T) {
 		t.Setenv("WERF_VAULT_AUTH_JWT", "env-jwt")
 		t.Setenv("WERF_VAULT_AUTH_PATH", "env-jwt-path")
 
-		auth, err := newAuthenticator(newAuthSettings(VaultOpts{}))
+		auth, err := newAuthenticator(VaultOpts{})
 		if err != nil {
 			t.Fatalf("newAuthenticator() unexpected error: %v", err)
 		}
@@ -317,10 +380,12 @@ func TestNewAuthenticatorAuthPath(t *testing.T) {
 	t.Run("default ar path when unset for approle", func(t *testing.T) {
 		clearVaultEnv(t)
 
-		auth, err := newAuthenticator(newAuthSettings(VaultOpts{
-			AuthRoleID:   "opts-role",
-			AuthSecretID: "opts-secret",
-		}))
+		auth, err := newAuthenticator(VaultOpts{
+			Auth: &VaultAuth{AppRole: &AppRoleAuth{
+				RoleID:   "opts-role",
+				SecretID: "opts-secret",
+			}},
+		})
 		if err != nil {
 			t.Fatalf("newAuthenticator() unexpected error: %v", err)
 		}
@@ -330,7 +395,7 @@ func TestNewAuthenticatorAuthPath(t *testing.T) {
 	t.Run("default jwt path when unset for jwt", func(t *testing.T) {
 		clearVaultEnv(t)
 
-		auth, err := newAuthenticator(newAuthSettings(VaultOpts{AuthJWT: "opts-jwt"}))
+		auth, err := newAuthenticator(VaultOpts{Auth: &VaultAuth{JWT: &JWTAuth{JWT: "opts-jwt"}}})
 		if err != nil {
 			t.Fatalf("newAuthenticator() unexpected error: %v", err)
 		}
