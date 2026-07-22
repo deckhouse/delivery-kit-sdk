@@ -44,12 +44,32 @@ type hashivaultClient struct {
 	originalHashFunc crypto.Hash
 }
 
+type VaultOpts struct {
+	Address                 string
+	Token                   string
+	TransitSecretEnginePath string
+	AuthJWT                 string
+	AuthPath                string
+	AuthRole                string
+	AuthRoleID              string
+	AuthSecretID            string
+	Audience                string
+}
+
+// hasAuthOpts reports whether the caller provided any explicit auth field.
+// Transport-only options (Address, TransitSecretEnginePath) do NOT count,
+// so env-based auth keeps working when only the address is set in code.
+func (o VaultOpts) hasAuthOpts() bool {
+	return o.Token != "" || o.AuthRoleID != "" || o.AuthSecretID != "" ||
+		o.AuthJWT != "" || o.AuthRole != "" || o.AuthPath != "" || o.Audience != ""
+}
+
 const (
 	// use a consistent key for cache lookups
 	cacheKey = "signer"
 )
 
-func newHashivaultClient(address, token, transitSecretEnginePath, keyResourceID string, keyVersion uint64, originalHashFunc crypto.Hash) (*hashivaultClient, error) {
+func newHashivaultClient(auth authenticator, address, transitSecretEnginePath, keyResourceID string, keyVersion uint64, originalHashFunc crypto.Hash) (*hashivaultClient, error) {
 	if err := validReference(keyResourceID); err != nil {
 		return nil, err
 	}
@@ -68,11 +88,6 @@ func newHashivaultClient(address, token, transitSecretEnginePath, keyResourceID 
 	})
 	if err != nil {
 		return nil, fmt.Errorf("new vault client: %w", err)
-	}
-
-	auth, err := newAuthenticator(token)
-	if err != nil {
-		return nil, err
 	}
 
 	hvClient := &hashivaultClient{

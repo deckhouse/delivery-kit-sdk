@@ -69,6 +69,15 @@ type SignerVerifier struct {
 // It also can verify signatures (via a remote vall to the Vault instance). The hashFunc will be
 // automatically set to crypto.Hash(0) if the key referred to by referenceStr is an ED25519 signing key.
 func LoadSignerVerifier(referenceStr string, hashFunc crypto.Hash, opts ...signature.RPCOption) (*SignerVerifier, error) {
+	return loadSignerVerifier(referenceStr, hashFunc, VaultOpts{})
+}
+
+// LoadSignerVerifierWithOpts does the same as LoadSignerVerifier but allows to specify the VaultOpts
+func LoadSignerVerifierWithOpts(referenceStr string, hashFunc crypto.Hash, opts VaultOpts) (*SignerVerifier, error) {
+	return loadSignerVerifier(referenceStr, hashFunc, opts)
+}
+
+func loadSignerVerifier(referenceStr string, hashFunc crypto.Hash, opts VaultOpts) (*SignerVerifier, error) {
 	h := &SignerVerifier{}
 
 	switch hashFunc {
@@ -78,8 +87,15 @@ func LoadSignerVerifier(referenceStr string, hashFunc crypto.Hash, opts ...signa
 		return nil, errors.New("hash function not supported by Hashivault")
 	}
 
+	authSettings := newAuthSettings(opts)
+
 	var err error
-	h.client, err = newHashivaultClient("", "", "", referenceStr, 0, hashFunc)
+	auth, err := newAuthenticator(authSettings)
+	if err != nil {
+		return nil, err
+	}
+
+	h.client, err = newHashivaultClient(auth, opts.Address, opts.TransitSecretEnginePath, referenceStr, 0, hashFunc)
 	if err != nil {
 		return nil, err
 	}
