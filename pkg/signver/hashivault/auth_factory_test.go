@@ -4,6 +4,8 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	vault "github.com/hashicorp/vault/api"
 )
 
 var vaultEnvKeys = []string{
@@ -400,5 +402,53 @@ func TestNewAuthenticatorAuthPath(t *testing.T) {
 			t.Fatalf("newAuthenticator() unexpected error: %v", err)
 		}
 		assertStaticJWT(t, auth, "", "jwt")
+	})
+}
+
+// TestStaticAuthenticatorLoginInstallsToken verifies that a static token
+// authenticator installs its configured token onto the Vault client on every
+// login, overriding any VAULT_TOKEN the SDK auto-loaded at client construction.
+// This guards the opts-mode guarantee that credentials come only from the
+// selected variant and never from the host environment.
+func TestStaticAuthenticatorLoginInstallsToken(t *testing.T) {
+	t.Run("overrides conflicting VAULT_TOKEN", func(t *testing.T) {
+		clearVaultEnv(t)
+		t.Setenv("VAULT_TOKEN", "env-token")
+
+		client, err := vault.NewClient(nil)
+		if err != nil {
+			t.Fatalf("vault.NewClient() unexpected error: %v", err)
+		}
+		if got := client.Token(); got != "env-token" {
+			t.Fatalf("precondition: client token = %q, want %q", got, "env-token")
+		}
+
+		auth := newStaticAuthProvider("configured-token")
+		if err := auth.Login(client); err != nil {
+			t.Fatalf("Login() unexpected error: %v", err)
+		}
+		if got := client.Token(); got != "configured-token" {
+			t.Errorf("client token = %q, want %q", got, "configured-token")
+		}
+	})
+
+	t.Run("installs token when VAULT_TOKEN unset", func(t *testing.T) {
+		clearVaultEnv(t)
+
+		client, err := vault.NewClient(nil)
+		if err != nil {
+			t.Fatalf("vault.NewClient() unexpected error: %v", err)
+		}
+		if got := client.Token(); got != "" {
+			t.Fatalf("precondition: client token = %q, want empty", got)
+		}
+
+		auth := newStaticAuthProvider("configured-token")
+		if err := auth.Login(client); err != nil {
+			t.Fatalf("Login() unexpected error: %v", err)
+		}
+		if got := client.Token(); got != "configured-token" {
+			t.Errorf("client token = %q, want %q", got, "configured-token")
+		}
 	})
 }
