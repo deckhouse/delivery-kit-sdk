@@ -143,6 +143,12 @@ func newHashivaultClient(auth authenticator, address, transitSecretEnginePath, k
 		return nil, fmt.Errorf("new vault client: %w", err)
 	}
 
+	// vault.NewClient auto-loads VAULT_TOKEN from the environment. Clear it so a
+	// host token never leaks in the X-Vault-Token header of AppRole/JWT/OIDC
+	// login requests; each authenticator installs its own token via SetToken
+	// before performing signing operations.
+	client.ClearToken()
+
 	hvClient := &hashivaultClient{
 		client:                  client,
 		keyPath:                 keyPath,

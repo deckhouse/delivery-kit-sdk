@@ -147,7 +147,7 @@ No extra HTTP requests between Vault operations, only the operation itself.
 sign() / verify() / public() → auth.Login()
   ├─ isTokenValid() = false → obtain new credentials
   │   ├─ AppRole: role_id + secret_id (no additional calls)
-  │   ├─ JWT (static): cached JWT from WERF_VAULT_AUTH_JWT (no additional calls)
+  │   ├─ JWT (static): cached JWT from WERF_VAULT_AUTH_JWT (env-mode) or JWTAuth.JWT (opts-mode) (no additional calls)
   │   └─ JWT (GitHub Actions): GET ACTIONS_ID_TOKEN_REQUEST_URL → fresh JWT
   ├─ POST /auth/jwt/login (or /auth/ar/login) → new Vault token
   │  cached as token_id with TTL from response
