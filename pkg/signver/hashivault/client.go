@@ -123,7 +123,7 @@ const (
 )
 
 func newHashivaultClient(auth authenticator, address, transitSecretEnginePath, keyResourceID string, keyVersion uint64, originalHashFunc crypto.Hash) (*hashivaultClient, error) {
-	if err := validReference(keyResourceID); err != nil {
+	if err := ValidReference(keyResourceID); err != nil {
 		return nil, err
 	}
 
