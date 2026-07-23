@@ -86,7 +86,6 @@ func newAuthenticatorFromOpts(auth *VaultAuth) (authenticator, error) {
 	default:
 		return nil, fmt.Errorf("incomplete Vault auth options: set exactly one of AppRole/OIDC/JWT/Token")
 	}
-
 }
 
 // validate ensures exactly one auth method variant is set.
