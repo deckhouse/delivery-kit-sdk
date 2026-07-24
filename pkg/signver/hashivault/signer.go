@@ -68,7 +68,7 @@ type SignerVerifier struct {
 //
 // It also can verify signatures (via a remote vall to the Vault instance). The hashFunc will be
 // automatically set to crypto.Hash(0) if the key referred to by referenceStr is an ED25519 signing key.
-func LoadSignerVerifier(referenceStr string, hashFunc crypto.Hash, opts ...signature.RPCOption) (*SignerVerifier, error) {
+func LoadSignerVerifier(referenceStr string, hashFunc crypto.Hash, _ ...signature.RPCOption) (*SignerVerifier, error) {
 	return loadSignerVerifier(referenceStr, hashFunc, VaultOpts{})
 }
 
