@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.0](https://github.com/deckhouse/delivery-kit-sdk/compare/v1.3.0...v1.4.0) (2026-09-08)
+
+
+### Features
+
+* **elf:** add byte signing API ([#106](https://github.com/deckhouse/delivery-kit-sdk/issues/106)) ([6fecde6](https://github.com/deckhouse/delivery-kit-sdk/commit/6fecde6cbb82b2af107c839711e60fdedb40db92))
+
 ## [1.3.0](https://github.com/deckhouse/delivery-kit-sdk/compare/v1.2.1...v1.3.0) (2026-07-27)
 
 
