@@ -2,6 +2,7 @@ package inhouse_test
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/hex"
 	"os"
 	"os/exec"
@@ -126,15 +127,16 @@ var _ = g.Describe("Linux ELF metadata", func() {
 		}
 	})
 
-	g.DescribeTable("Given an integrity-protected ELF, then signing refuses stale integrity metadata", func(ctx g.SpecContext, name string) {
+	g.DescribeTable("Given an integrity-protected ELF, then signing refuses stale integrity metadata", func(ctx g.SpecContext, name string, header []byte) {
 		if os.Geteuid() != 0 {
 			m.Expect(os.Getenv("DK_ELF_REQUIRE_ROOT")).NotTo(m.Equal("1"))
 			g.Skip("preparing security attributes requires root")
 		}
 		path := writeELF(readFile(helloElfFile))
-		value := []byte("integrity metadata")
-		m.Expect(unix.Setxattr(path, name, value, 0)).To(m.Succeed())
 		original := readFile(path)
+		digest := sha256.Sum256(original)
+		value := append(bytes.Clone(header), digest[:]...)
+		m.Expect(unix.Setxattr(path, name, value, 0)).To(m.Succeed())
 		m.Expect(inhouse.Sign(ctx, newSignerVerifier(ctx), path)).To(m.MatchError(m.ContainSubstring("requires integrity re-signing")))
 		m.Expect(readFile(path)).To(m.Equal(original))
 		m.Expect(readAttribute(path, name)).To(m.Equal(value))
@@ -142,8 +144,9 @@ var _ = g.Describe("Linux ELF metadata", func() {
 		m.Expect(err).NotTo(m.HaveOccurred())
 		m.Expect(leftovers).To(m.BeEmpty())
 	},
-		g.Entry("IMA", "security.ima"),
-		g.Entry("EVM", "security.evm"),
+		// IMA digest-ng/SHA-256 and EVM v2/SHA-256 envelopes pass kernel format checks.
+		g.Entry("IMA", "security.ima", []byte{4, 4}),
+		g.Entry("EVM", "security.evm", []byte{3, 2, 4, 0, 0, 0, 0, 0, 32}),
 	)
 
 	g.It("Given a directory default ACL absent from the source, then signing does not inherit extra access", func(ctx g.SpecContext) {
