@@ -3,8 +3,7 @@
 `Sign` and `Verify` keep their file-path APIs. ELF32 and ELF64, both byte orders,
 and every `e_machine` value use the same implementation. Runtime signing and
 verification require neither CGO nor an external executable. Section editing is
-provided by `github.com/deckhouse/elfedit`, pinned to
-`v0.0.0-20260907205808-d969ba637ddd` (the merge of PR #2). Its module requires Go 1.25, so the SDK now has the same minimum Go version.
+provided by `github.com/deckhouse/elfedit`. The SDK requires Go 1.25 or later.
 
 ## Signature contract
 
