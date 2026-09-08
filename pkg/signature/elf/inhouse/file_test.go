@@ -1,18 +1,12 @@
-//go:build linux
-// +build linux
-
 package inhouse_test
 
 import (
-	"os"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 
 	"github.com/deckhouse/delivery-kit-sdk/pkg/signature/elf"
 	"github.com/deckhouse/delivery-kit-sdk/pkg/signature/elf/inhouse"
-	"github.com/deckhouse/delivery-kit-sdk/pkg/signver"
 	"github.com/deckhouse/delivery-kit-sdk/test/pkg/cert_utils"
 )
 
@@ -30,16 +24,15 @@ var _ = Describe("signature/elf/custom", func() {
 			signerVerifier := newSignerVerifier(ctx)
 
 			oldElfBinary := readFile(helloElfFile)
-			newElfFilePath, cleanupTmpFile := makeTempFileCopy(helloElfFile, "hello.*.elf")
+			newElfFilePath, cleanupTmpFile := makeTempFileCopy(helloElfFile)
 			defer cleanupTmpFile()
 
 			Expect(inhouse.Sign(ctx, signerVerifier, newElfFilePath)).To(Succeed())
 
 			newElfBinary := readFile(newElfFilePath)
-			fixtureNewElfBinary := readFile(helloElfFileWithSignature)
 
 			Expect(newElfBinary).NotTo(Equal(oldElfBinary))
-			Expect(newElfBinary).To(Equal(fixtureNewElfBinary))
+			Expect(inhouse.Verify(ctx, []string{cert_utils.RootCABase64}, newElfFilePath)).To(Succeed())
 		},
 		Entry(
 			"with x509 certs",
@@ -51,16 +44,15 @@ var _ = Describe("signature/elf/custom", func() {
 			signerVerifier := newSignerVerifier(ctx)
 
 			oldElfBinary := readFile(helloElfFileWithOutdatedSignature)
-			newElfFilePath, cleanupTmpFile := makeTempFileCopy(helloElfFileWithOutdatedSignature, "hello.*.elf")
+			newElfFilePath, cleanupTmpFile := makeTempFileCopy(helloElfFileWithOutdatedSignature)
 			defer cleanupTmpFile()
 
 			Expect(inhouse.Sign(ctx, signerVerifier, newElfFilePath)).To(Succeed())
 
 			newElfBinary := readFile(newElfFilePath)
-			fixtureNewElfBinary := readFile(helloElfFileWithSignature)
 
 			Expect(newElfBinary).NotTo(Equal(oldElfBinary))
-			Expect(newElfBinary).To(Equal(fixtureNewElfBinary))
+			Expect(inhouse.Verify(ctx, []string{cert_utils.RootCABase64}, newElfFilePath)).To(Succeed())
 		},
 		Entry(
 			"with x509 certs",
@@ -72,7 +64,7 @@ var _ = Describe("signature/elf/custom", func() {
 			signerVerifier := newSignerVerifier(ctx)
 
 			oldTxtData := readFile(helloTxtFile)
-			newTxtFilePath, cleanupTmpFile := makeTempFileCopy(helloTxtFile, "hello.*.txt")
+			newTxtFilePath, cleanupTmpFile := makeTempFileCopy(helloTxtFile)
 			defer cleanupTmpFile()
 
 			Expect(inhouse.Sign(ctx, signerVerifier, newTxtFilePath)).To(Equal(elf.ErrNotELF))
@@ -118,7 +110,7 @@ var _ = Describe("signature/elf/custom", func() {
 			signerVerifier := newSignerVerifier(ctx)
 
 			oldElfBinary := readFile(helloSectionlessElfFile)
-			newElfFilePath, cleanupTmpFile := makeTempFileCopy(helloSectionlessElfFile, "hello_sectionless.*.elf")
+			newElfFilePath, cleanupTmpFile := makeTempFileCopy(helloSectionlessElfFile)
 			defer cleanupTmpFile()
 
 			Expect(inhouse.Sign(ctx, signerVerifier, newElfFilePath)).To(MatchError(elf.ErrNoSections))
@@ -149,36 +141,3 @@ var _ = Describe("signature/elf/custom", func() {
 		),
 	)
 })
-
-func newSignerVerifier(ctx SpecContext) *signver.SignerVerifier {
-	signerVerifier, err := signver.NewSignerVerifier(ctx, cert_utils.SignerCertBase64, cert_utils.SignerChainBase64, signver.KeyOpts{
-		KeyRef: cert_utils.SignerKeyBase64,
-	})
-	Expect(err).To(Succeed())
-
-	return signerVerifier
-}
-
-func readFile(path string) []byte {
-	data, err := os.ReadFile(path)
-	Expect(err).To(Succeed())
-
-	return data
-}
-
-func makeTempFileCopy(srcPath, tmpPattern string) (tmpFilePath string, tmpFileCleanupFn func()) {
-	srcData := readFile(srcPath)
-
-	tmpFile, err := os.CreateTemp("", tmpPattern)
-	Expect(err).To(Succeed())
-
-	_, err = tmpFile.Write(srcData)
-	Expect(err).To(Succeed())
-
-	tmpFilePath = tmpFile.Name()
-	Expect(tmpFile.Close()).To(Succeed())
-
-	tmpFileCleanupFn = func() { os.Remove(tmpFilePath) }
-
-	return tmpFilePath, tmpFileCleanupFn
-}

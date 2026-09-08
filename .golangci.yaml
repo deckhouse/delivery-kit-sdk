@@ -1,54 +1,68 @@
-run:
-  timeout: 10m
-
-linters-settings:
-  gofumpt:
-    extra-rules: true
-  gci:
-    sections:
-      - standard
-      - default
-      - prefix(github.com/deckhouse/delivery-kit-sdk)
-  gocritic:
-    disabled-checks:
-      - ifElseChain
-      - dupSubExpr
-  errorlint:
-    comparison: false
-    asserts: false
-  misspell:
-    locale: US
-
+version: "2"
 linters:
-  disable-all: true
+  default: none
   enable:
-    # Default linters.
-    - ineffassign
-    - typecheck
-    - unused
-
-    # Extra linters.
     - asciicheck
     - bidichk
     - bodyclose
+    - copyloopvar
     - errname
     - errorlint
-    - copyloopvar
-    - gci
     - gocritic
-    - gofumpt
+    - ineffassign
     - misspell
     - nolintlint
-
+    - unused
+  settings:
+    errorlint:
+      asserts: false
+      comparison: false
+    gocritic:
+      disabled-checks:
+        - ifElseChain
+        - dupSubExpr
+    misspell:
+      locale: US
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    rules:
+      - path: (.+)\.go$
+        text: non-wrapping format verb for fmt.Errorf
+    paths:
+      - playground
+      - docs
+      - scripts
+      - stapel
+      - third_party$
+      - builtin$
+      - examples$
 issues:
-  # Show all errors.
   max-issues-per-linter: 0
   max-same-issues: 0
-  exclude-dirs:
-    - playground
-    - docs
-    - scripts
-    - stapel
-  exclude:
-    # TODO use %w in the future.
-    - "non-wrapping format verb for fmt.Errorf" # errorlint
+formatters:
+  enable:
+    - gci
+    - gofumpt
+  settings:
+    gci:
+      sections:
+        - standard
+        - default
+        - prefix(github.com/deckhouse/delivery-kit-sdk)
+    gofumpt:
+      extra-rules: true
+  exclusions:
+    generated: lax
+    paths:
+      - playground
+      - docs
+      - scripts
+      - stapel
+      - third_party$
+      - builtin$
+      - examples$
