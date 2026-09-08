@@ -1,6 +1,8 @@
 name: Test E2E Longterm
 
-on: [push]
+on:
+  schedule:
+    - cron: '17 3 * * *'
 
 jobs:
   test-longterm:
