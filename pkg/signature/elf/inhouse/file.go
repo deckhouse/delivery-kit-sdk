@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"debug/elf"
-	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -134,38 +133,7 @@ func Verify(ctx context.Context, rootCertRefs []string, path string) error {
 	if err != nil {
 		return err
 	}
-	payload, err := f.signature()
-	if err != nil {
-		return err
-	}
-	var bundle *signature.Bundle
-	if err := json.Unmarshal(payload, &bundle); err != nil {
-		return fmt.Errorf("unmarshal signature bundle: %w", err)
-	}
-	if bundle == nil {
-		return errors.New("signature bundle is null")
-	}
-	digest, err := f.hash(ctx)
-	if err != nil {
-		return fmt.Errorf("hash ELF: %w", err)
-	}
-	verifyErr := signature.VerifyBundle(ctx, *bundle, digest, rootCertRefs)
-	if verifyErr == nil {
-		return nil
-	}
-	// Legacy digests used the signer's native byte order, with no order marker.
-	var otherOrder binary.ByteOrder = binary.BigEndian
-	if binary.NativeEndian.Uint16([]byte{1, 0}) != 1 {
-		otherOrder = binary.LittleEndian
-	}
-	otherDigest, err := f.hashOrder(ctx, otherOrder)
-	if err != nil {
-		return fmt.Errorf("hash ELF in alternate legacy order: %w", err)
-	}
-	if err := signature.VerifyBundle(ctx, *bundle, otherDigest, rootCertRefs); err != nil {
-		return fmt.Errorf("verify signature bundle: %w", errors.Join(verifyErr, err))
-	}
-	return nil
+	return verifyELF(ctx, rootCertRefs, f)
 }
 
 func openRegularFile(path string) (*os.File, os.FileInfo, error) {
