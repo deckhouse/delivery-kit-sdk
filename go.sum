@@ -15,6 +15,8 @@ github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc h1:U9qPSI2PIWSS1
 github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/deckhouse/elfedit v0.0.0-20260907205808-d969ba637ddd h1:+w8geIwnxbyZlR/CefwtvNHk4hXA4kkqyW0Ej0El/jA=
 github.com/deckhouse/elfedit v0.0.0-20260907205808-d969ba637ddd/go.mod h1:Qdsqyxx1eur+519iAS4slYEf5m4QMZDERZ5WMaeqQWg=
+github.com/deckhouse/elfedit v0.1.0 h1:EyJ0HpQu9XgYN1B2jNHL0JHXH1EcS5ms+xZ/pBMQoq0=
+github.com/deckhouse/elfedit v0.1.0/go.mod h1:Qdsqyxx1eur+519iAS4slYEf5m4QMZDERZ5WMaeqQWg=
 github.com/docker/cli v25.0.5+incompatible h1:3Llw3kcE1gOScEojA247iDD+p1l9hHeC7H3vf3Zd5fk=
 github.com/docker/cli v25.0.5+incompatible/go.mod h1:JLrzqnKDaYBop7H2jaqPtU4hHvMKP+vjCwu2uszcLI8=
 github.com/docker/distribution v2.8.3+incompatible h1:AtKxIZ36LoNK51+Z6RpzLpddBirtxJnzDrHLEKxTAYk=
