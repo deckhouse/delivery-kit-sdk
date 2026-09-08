@@ -45,16 +45,31 @@ that coverage. It does not promise whole-file integrity.
 `elfedit.WriteSection` streams from the open source into a distinct temporary
 file in the destination directory. It preserves existing section indexes and
 name offsets, so signing does not need the old objcopy retry. Before replacing
-the original, the SDK rechecks the digest and stored bundle, preserves Unix UID/GID before applying file mode,
-syncs and closes the output, checks for a concurrent source replacement/change,
+the original, the SDK rechecks the digest and stored bundle, preserves Unix UID/GID, applies Linux ACLs/xattrs, restores the final file mode,
+checks the resulting metadata, syncs and closes the output, checks for a concurrent source replacement/change,
 and uses rename. The bundle read-back is defense against an incorrectly behaving editor, in addition to the independently checked digest identity. Failed work removes the temporary file. Symlink paths resolve
 to their target; the symlink itself remains intact.
 
 Callers must provide a stable source and destination directory for the operation.
 Non-regular inputs are rejected before opening them, including FIFOs. The final stat check detects ordinary concurrent writes; it is not an atomic
 compare-and-swap against hostile directory writers. Replacement creates a new
-inode: other hard links retain the old inode, and extended filesystem metadata
-such as ACLs and xattrs is not copied.
+inode: other hard links retain the old inode. On Linux, the SDK copies all xattrs
+visible to the signing process, including POSIX access ACLs, capabilities and
+SELinux labels, after content and ownership are finalized. The temporary file
+remains owner-writable while attributes are copied, with access ACL applied last
+and final mode restored afterwards; read-only source files need no write access. Extra inherited
+attributes are removed; the resulting attributes and mode are read back and
+checked. Any read, write, removal or validation error leaves the source intact.
+Linux may hide privileged namespaces such as `trusted.*` from unprivileged
+processes: preserving those requires the corresponding capabilities. Restoring
+a non-default SELinux label also requires the applicable relabel permissions;
+a denied label change fails without replacing the source. Metadata
+must remain stable during signing, just like file contents.
+
+`security.ima` and `security.evm` are rejected because their integrity data
+cannot be copied to edited content/a new inode without separate integrity
+re-signing. This SDK does not implement that operation. Other operating systems
+still do not copy ACLs/xattrs.
 Unlike the old in-place copy, atomic replacement requires permission to assign the
 source UID/GID to the new inode. If the signer cannot preserve either, signing
 fails and leaves the source intact, even for an otherwise writable ordinary file.
@@ -86,7 +101,10 @@ copied names and new section headers within the metadata budget plus ordinary
 alignment, while rejecting alignment-driven expansion. It bounds output only;
 the independent metadata checks are essential because elfedit parses metadata
 before enforcing its output limit. Very large metadata or padding is rejected
-without replacing the input. A 600 MiB sparse-artifact test exercises streaming.
+without replacing the input. A 600 MiB sparse-artifact test exercises streaming. Linux xattr snapshots have a
+separate 64 MiB aggregate budget each; individual values and name lists use the
+Linux 64 KiB limits. Three snapshots can coexist during final validation: up to 192 MiB of attribute
+payload/name budgets, plus map and buffer overhead.
 
 ## Checks
 

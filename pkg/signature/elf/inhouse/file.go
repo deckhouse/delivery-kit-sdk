@@ -89,8 +89,15 @@ func Sign(ctx context.Context, signerVerifier *signver.SignerVerifier, path stri
 	if err := preserveOwnership(dst, info); err != nil {
 		return err
 	}
-	if err := dst.Chmod(info.Mode()); err != nil {
-		return fmt.Errorf("preserve ELF permissions: %w", err)
+	if err := preservePermissionsAndAttributes(ctx, src, dst, info.Mode()); err != nil {
+		return fmt.Errorf("preserve ELF extended attributes: %w", err)
+	}
+	finalInfo, err := dst.Stat()
+	if err != nil {
+		return fmt.Errorf("stat final ELF: %w", err)
+	}
+	if finalInfo.Mode() != info.Mode() {
+		return fmt.Errorf("extended attribute edit changed ELF permissions")
 	}
 	if err := dst.Sync(); err != nil {
 		return fmt.Errorf("sync signed ELF: %w", err)

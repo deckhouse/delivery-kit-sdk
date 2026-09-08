@@ -14,6 +14,7 @@ require (
 	github.com/onsi/gomega v1.36.0
 	github.com/samber/lo v1.51.0
 	golang.org/x/crypto v0.46.0
+	golang.org/x/sys v0.39.0
 	k8s.io/utils v0.0.0-20240310230437-4693a0247e57
 )
 
@@ -43,7 +44,6 @@ require (
 	github.com/ryanuber/go-glob v1.0.0 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	golang.org/x/net v0.48.0 // indirect
-	golang.org/x/sys v0.39.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
 	google.golang.org/grpc v1.79.3 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
