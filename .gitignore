@@ -3,8 +3,6 @@
 *.os
 *.o
 *.so
-/c/lib/welf/build
 .help
-/c/vendor/libuv.a
 /.pi
 /.pp

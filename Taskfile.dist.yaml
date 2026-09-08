@@ -4,17 +4,21 @@ vars:
   package: "github.com/deckhouse/delivery-kit-sdk"
 
 tasks:
+  build:
+    cmds:
+      - go build {{.CLI_ARGS}} ./...
+    env:
+      CGO_ENABLED: "0"
+
   lint:
     desc: 'Run all linters in parallel. Important vars: "paths".'
     deps:
       - lint:golangci-lint
 
   lint:golangci-lint:
-    desc: 'Lint with golangci-lint without cgo. Important vars: "paths".'
+    desc: 'Lint with golangci-lint. Important vars: "paths".'
     cmds:
       - golangci-lint run {{.CLI_ARGS}} {{.paths | default "./..."}}
-    env:
-      CGO_ENABLED: "1"
 
   format:
     desc: 'Run all code formatters. Important vars: "paths".'
@@ -54,7 +58,7 @@ tasks:
     cmds:
       - task: test:ginkgo
         vars:
-          labelFilter: '{{.labelFilter | default "e2e"}}'
+          labelFilter: '{{.labelFilter | default "e2e && !elf-legacy"}}'
 
   deps:install:
     desc: "Install all dependencies"
@@ -63,25 +67,6 @@ tasks:
       - deps:install:ginkgo
       - deps:install:golangci-lint
       - deps:install:gofumpt
-      - deps:install:c
-
-  deps:install:c:
-    desc: "Install c libraries."
-    cmds:
-      - git submodule update --init --recursive c/vendor/libelf
-      - |
-        if command -v apt-get >/dev/null 2>&1; then
-          export DEBIAN_FRONTEND=noninteractive
-          sudo apt-get -y update
-          sudo apt-get install -y build-essential libuv1-dev libzstd-dev zlib1g-dev libssl-dev cmake
-
-          # If libuv has a legacy name, create a symlink
-          libuva_path="$(dpkg -L libuv1-dev | grep -F '/libuv_a.a')"
-          [[ -n "$libuva_path" ]] && ln -fs "$libuva_path" c/vendor/libuv.a
-        else
-          echo "Can't install C dependencies automatically, do it manually."
-          exit 1
-        fi
 
   deps:install:gci:
     desc: "Install gci binary."
@@ -98,7 +83,7 @@ tasks:
   deps:install:golangci-lint:
     desc: "Install golangci-lint binary."
     cmds:
-      - curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin {{.golangcilintVersion | default "v1.64.8"}}
+      - curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin {{.golangcilintVersion | default "v2.4.0"}}
 
   deps:install:gofumpt:
     desc: "Install gofumpt binary."
@@ -115,11 +100,13 @@ tasks:
     cmds:
       - go generate ./...
 
-  install:c:
-    desc: "Install C libraries system-wide."
+  test:elf-legacy:
+    desc: "Check interoperability with the former libelf/objcopy implementation (Linux)."
+    vars:
+      legacyDir: pkg/signature/elf/inhouse/testdata/legacy
+      legacyTool: '{{.legacyTool | default "/tmp/delivery-kit-elf-legacy"}}'
     cmds:
-      - task: deps:install:c
-      - task: generate
-      - sudo cp -f c/vendor/libelf/libelf.a c/lib/welf.a /usr/local/lib/
-      - test -e "c/vendor/libuv.a" && sudo cp -Pf c/vendor/libuv.a /usr/local/lib/
-      - sudo cp -f c/vendor/libelf/include/*.h c/lib/welf/include/*.h /usr/local/include/
+      - cc -I{{.legacyDir}} {{.legacyDir}}/*.c -lelf -lcrypto -o {{.legacyTool}}
+      - task test:e2e paths=./pkg/signature/elf/inhouse labelFilter=elf-legacy parallel=false {{if .CLI_ARGS}}-- {{.CLI_ARGS}}{{end}}
+    env:
+      ELF_LEGACY_TOOL: '{{.legacyTool}}'

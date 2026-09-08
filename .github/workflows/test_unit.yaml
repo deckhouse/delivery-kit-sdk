@@ -24,3 +24,19 @@ jobs:
 
       - name: Test Unit
         run: task test:unit
+
+  test-elf-legacy:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: arduino/setup-task@v2
+      - name: Install compatibility oracle dependencies
+        run: sudo apt-get update && sudo apt-get install -y libelf-dev libssl-dev binutils-multiarch
+      - run: task deps:install:ginkgo
+      - run: task test:elf-legacy
+      - name: Check privileged ELF finalization
+        run: sudo env DK_ELF_REQUIRE_ROOT=1 "PATH=$PATH" "GOPATH=$(go env GOPATH)" "GOCACHE=$(go env GOCACHE)" task test:unit paths=./pkg/signature/elf/inhouse parallel=false -- --focus='foreign-owned setuid ELF|ordinary ELF ownership' --fail-on-empty
