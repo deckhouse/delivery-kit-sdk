@@ -103,6 +103,7 @@ func verifyELF(ctx context.Context, rootCertRefs []string, f *elfFile) error {
 		return nil
 	}
 
+	// Legacy digests used the signer's native byte order, with no order marker.
 	var otherOrder binary.ByteOrder = binary.BigEndian
 	if binary.NativeEndian.Uint16([]byte{1, 0}) != 1 {
 		otherOrder = binary.LittleEndian

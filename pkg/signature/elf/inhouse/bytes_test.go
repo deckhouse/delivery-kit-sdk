@@ -37,12 +37,9 @@ var _ = g.Describe("ELF byte signing", func() {
 		m.Expect(err).NotTo(m.HaveOccurred())
 		f, err := elf.NewFile(bytes.NewReader(signed))
 		m.Expect(err).NotTo(m.HaveOccurred())
-		section := f.Section(".note.delivery-kit.signature")
+		section := f.Section(".text")
 		m.Expect(section).NotTo(m.BeNil())
-		noteOffset := int(section.Offset)
-		nameSize := f.ByteOrder.Uint32(signed[noteOffset : noteOffset+4])
-		signatureOffset := noteOffset + 12 + int((nameSize+3)&^3)
-		signed[signatureOffset] ^= 1
-		m.Expect(inhouse.VerifyBytes(ctx, []string{cert_utils.RootCABase64}, signed)).To(m.HaveOccurred())
+		signed[section.Offset] ^= 1
+		m.Expect(inhouse.VerifyBytes(ctx, []string{cert_utils.RootCABase64}, signed)).To(m.MatchError(m.ContainSubstring("signature verification")))
 	})
 })
