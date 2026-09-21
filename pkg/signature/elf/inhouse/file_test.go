@@ -59,6 +59,26 @@ var _ = Describe("signature/elf/custom", func() {
 		),
 	)
 
+	DescribeTable("should leave an already signed file untouched",
+		func(ctx SpecContext) {
+			signerVerifier := newSignerVerifier(ctx)
+
+			newElfFilePath, cleanupTmpFile := makeTempFileCopy(helloElfFile)
+			defer cleanupTmpFile()
+
+			Expect(inhouse.Sign(ctx, signerVerifier, newElfFilePath)).To(Succeed())
+			signedElfBinary := readFile(newElfFilePath)
+
+			Expect(inhouse.Sign(ctx, signerVerifier, newElfFilePath)).To(Succeed())
+
+			Expect(readFile(newElfFilePath)).To(Equal(signedElfBinary))
+			Expect(inhouse.Verify(ctx, []string{cert_utils.RootCABase64}, newElfFilePath)).To(Succeed())
+		},
+		Entry(
+			"with x509 certs",
+		),
+	)
+
 	DescribeTable("should fail to sign non-elf file",
 		func(ctx SpecContext) {
 			signerVerifier := newSignerVerifier(ctx)

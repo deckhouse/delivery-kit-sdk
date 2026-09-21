@@ -21,6 +21,7 @@ var _ = g.Describe("ELF byte signing", func() {
 		resigned, err := inhouse.SignBytes(ctx, newSignerVerifier(ctx), signed)
 		m.Expect(err).NotTo(m.HaveOccurred())
 		m.Expect(inhouse.VerifyBytes(ctx, []string{cert_utils.RootCABase64}, resigned)).To(m.Succeed())
+		m.Expect(resigned).To(m.Equal(signed))
 
 		path := writeELF(resigned)
 		m.Expect(inhouse.Verify(ctx, []string{cert_utils.RootCABase64}, path)).To(m.Succeed())
