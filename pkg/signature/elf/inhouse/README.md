@@ -41,6 +41,8 @@ that coverage. It does not promise whole-file integrity.
 
 ## Re-signing and file writes
 
+Signing is a no-op when the active note already contains a signature over the current native-order digest with the same certificate and chain. The existing signature is verified locally from that certificate; no remote signer call or root trust decision is needed. A stale signature, a different certificate or chain, or a legacy host-order note in an opposite-endian ELF is rewritten.
+
 `elfedit.WriteSection` streams from the open source into a distinct temporary
 file in the destination directory. It preserves existing section indexes and
 name offsets, so signing does not need the old objcopy retry. Before replacing

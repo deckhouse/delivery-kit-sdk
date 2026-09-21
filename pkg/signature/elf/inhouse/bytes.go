@@ -127,11 +127,11 @@ func verifyELF(ctx context.Context, rootCertRefs []string, f *elfFile) error {
 // again only replaces the signature with an equivalent one, while rewriting the
 // ELF and invalidating whatever other tools hashed over it, so callers skip it.
 func signedBy(ctx context.Context, signerVerifier *signver.SignerVerifier, f *elfFile, digest string) bool {
-	if ctx.Err() != nil {
+	if ctx.Err() != nil || len(signerVerifier.Cert) == 0 {
 		return false
 	}
-	payload, err := f.signature()
-	if err != nil {
+	payload, canonical, err := f.signatureWithEncoding()
+	if err != nil || !canonical {
 		return false
 	}
 	var bundle *signature.Bundle
@@ -141,5 +141,9 @@ func signedBy(ctx context.Context, signerVerifier *signver.SignerVerifier, f *el
 	if !bytes.Equal(bundle.Cert, signerVerifier.Cert) || !bytes.Equal(bundle.Chain, signerVerifier.Chain) {
 		return false
 	}
-	return signerVerifier.VerifySignature(bytes.NewReader(bundle.Signature), strings.NewReader(digest)) == nil
+	verifier, err := signver.NewVerifierFromCert(ctx, signature.Base64Bytes(signerVerifier.Cert).Base64String())
+	if err != nil {
+		return false
+	}
+	return verifier.VerifySignature(bytes.NewReader(bundle.Signature), strings.NewReader(digest)) == nil
 }
