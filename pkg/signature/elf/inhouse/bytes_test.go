@@ -3,6 +3,7 @@ package inhouse_test
 import (
 	"bytes"
 	"debug/elf"
+	"encoding/base64"
 	"encoding/binary"
 
 	g "github.com/onsi/ginkgo/v2"
@@ -39,9 +40,11 @@ var _ = g.Describe("ELF byte signing", func() {
 		signed, err := inhouse.SignBytes(ctx, signerVerifier, readFile(helloElfFile))
 		m.Expect(err).NotTo(m.HaveOccurred())
 
+		otherCert, err := base64.StdEncoding.DecodeString(cert_utils.UnknownRootCABase64)
+		m.Expect(err).NotTo(m.HaveOccurred())
 		changedCert := &signver.SignerVerifier{
 			SignerVerifier: signerVerifier.SignerVerifier,
-			Cert:           append(bytes.Clone(signerVerifier.Cert), '\n'),
+			Cert:           otherCert,
 			Chain:          bytes.Clone(signerVerifier.Chain),
 		}
 		resigned, err := inhouse.SignBytes(ctx, changedCert, signed)
