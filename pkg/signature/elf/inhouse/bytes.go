@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/deckhouse/elfedit"
 
@@ -27,6 +28,9 @@ func SignBytes(ctx context.Context, signerVerifier *signver.SignerVerifier, imag
 	digest, err := f.hash(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("hash ELF: %w", err)
+	}
+	if signedBy(ctx, signerVerifier, f, digest) {
+		return bytes.Clone(image), nil
 	}
 	bundle, err := signature.Sign(ctx, signerVerifier, digest)
 	if err != nil {
@@ -116,4 +120,30 @@ func verifyELF(ctx context.Context, rootCertRefs []string, f *elfFile) error {
 		return fmt.Errorf("verify signature bundle: %w", errors.Join(verifyErr, err))
 	}
 	return nil
+}
+
+// signedBy reports whether f already carries a signature over digest made by
+// signerVerifier with the certificate it would attach now. Signing such a file
+// again only replaces the signature with an equivalent one, while rewriting the
+// ELF and invalidating whatever other tools hashed over it, so callers skip it.
+func signedBy(ctx context.Context, signerVerifier *signver.SignerVerifier, f *elfFile, digest string) bool {
+	if ctx.Err() != nil || len(signerVerifier.Cert) == 0 {
+		return false
+	}
+	payload, canonical, err := f.signatureWithEncoding()
+	if err != nil || !canonical {
+		return false
+	}
+	var bundle *signature.Bundle
+	if err := json.Unmarshal(payload, &bundle); err != nil || bundle == nil {
+		return false
+	}
+	if !bytes.Equal(bundle.Cert, signerVerifier.Cert) || !bytes.Equal(bundle.Chain, signerVerifier.Chain) {
+		return false
+	}
+	verifier, err := signver.NewVerifierFromCert(ctx, signature.Base64Bytes(signerVerifier.Cert).Base64String())
+	if err != nil {
+		return false
+	}
+	return verifier.VerifySignature(bytes.NewReader(bundle.Signature), strings.NewReader(digest)) == nil
 }

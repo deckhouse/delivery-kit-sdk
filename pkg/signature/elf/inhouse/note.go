@@ -28,23 +28,30 @@ func makeNote(order binary.ByteOrder, payload []byte) ([]byte, error) {
 }
 
 func (f *elfFile) signature() ([]byte, error) {
+	payload, _, err := f.signatureWithEncoding()
+	return payload, err
+}
+
+func (f *elfFile) signatureWithEncoding() ([]byte, bool, error) {
 	if f.signatureIndex == 0 {
-		return nil, elfsig.ErrNoSignatureSection
+		return nil, false, elfsig.ErrNoSignatureSection
 	}
 	s := f.sections[f.signatureIndex]
 	if s.Size == 0 {
-		return nil, elfsig.ErrNoSignatureSection
+		return nil, false, elfsig.ErrNoSignatureSection
 	}
 	if s.Size > maxNoteSize || s.Size < 12 {
-		return nil, fmt.Errorf("invalid signature note size")
+		return nil, false, fmt.Errorf("invalid signature note size")
 	}
 	note := make([]byte, int(s.Size))
 	if _, err := f.src.ReadAt(note, int64(s.Off)); err != nil {
-		return nil, fmt.Errorf("read signature note: %w", err)
+		return nil, false, fmt.Errorf("read signature note: %w", err)
 	}
 	order := f.order
+	canonical := true
 	// The former C writer used host order even when the ELF had the other order.
 	if order.Uint32(note[8:12]) != signatureNoteType {
+		canonical = false
 		if order == binary.BigEndian {
 			order = binary.LittleEndian
 		} else {
@@ -56,16 +63,16 @@ func (f *elfFile) signature() ([]byte, error) {
 	typ := order.Uint32(note[8:12])
 	offset := 12 + (namesz+3)&^3
 	if namesz == 0 || namesz > uint64(len(note))-12 || offset > uint64(len(note)) || descsz > uint64(len(note))-offset {
-		return nil, fmt.Errorf("signature note fields outside section")
+		return nil, false, fmt.Errorf("signature note fields outside section")
 	}
 	if typ != signatureNoteType {
-		return nil, fmt.Errorf("unexpected signature note type %#x", typ)
+		return nil, false, fmt.Errorf("unexpected signature note type %#x", typ)
 	}
 	if string(note[12:12+namesz]) != signatureNoteName {
-		return nil, fmt.Errorf("unexpected signature note name")
+		return nil, false, fmt.Errorf("unexpected signature note name")
 	}
 	if descsz == 0 {
-		return nil, elfsig.ErrNoSignatureSection
+		return nil, false, elfsig.ErrNoSignatureSection
 	}
-	return note[offset : offset+descsz], nil
+	return note[offset : offset+descsz], canonical, nil
 }

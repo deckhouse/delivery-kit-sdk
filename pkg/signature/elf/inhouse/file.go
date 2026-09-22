@@ -37,6 +37,9 @@ func Sign(ctx context.Context, signerVerifier *signver.SignerVerifier, path stri
 	if err != nil {
 		return fmt.Errorf("hash ELF: %w", err)
 	}
+	if signedBy(ctx, signerVerifier, f, digest) {
+		return nil
+	}
 	bundle, err := signature.Sign(ctx, signerVerifier, digest)
 	if err != nil {
 		return fmt.Errorf("sign bundle: %w", err)
