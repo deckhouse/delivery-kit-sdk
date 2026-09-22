@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.2](https://github.com/deckhouse/delivery-kit-sdk/compare/v1.4.1...v1.4.2) (2026-09-22)
+
+
+### Bug Fixes
+
+* **elf:** skip signing a file the same signer already signed ([#109](https://github.com/deckhouse/delivery-kit-sdk/issues/109)) ([e0454dc](https://github.com/deckhouse/delivery-kit-sdk/commit/e0454dcaeb5e6c806742c6054d664ed840f267e3))
+
 ## [1.4.0](https://github.com/deckhouse/delivery-kit-sdk/compare/v1.3.0...v1.4.0) (2026-09-08)
 
 
