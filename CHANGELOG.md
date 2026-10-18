@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.4](https://github.com/deckhouse/delivery-kit-sdk/compare/v1.4.3...v1.4.4) (2026-10-18)
+
+
+### Bug Fixes
+
+* **elf:** preserve valid metadata when signing and verifying ([#114](https://github.com/deckhouse/delivery-kit-sdk/issues/114)) ([a049922](https://github.com/deckhouse/delivery-kit-sdk/commit/a049922c5274254006402c3f203d2940ce16315c))
+
 ## [1.4.3](https://github.com/deckhouse/delivery-kit-sdk/compare/v1.4.2...v1.4.3) (2026-10-18)
 
 
