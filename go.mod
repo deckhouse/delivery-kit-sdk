@@ -3,7 +3,7 @@ module github.com/deckhouse/delivery-kit-sdk
 go 1.25.0
 
 require (
-	github.com/deckhouse/elfedit v0.1.1
+	github.com/deckhouse/elfedit v0.1.2-0.20261018090255-176b56e69b7e
 	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/google/certificate-transparency-go v1.1.7
 	github.com/google/go-containerregistry v0.20.1

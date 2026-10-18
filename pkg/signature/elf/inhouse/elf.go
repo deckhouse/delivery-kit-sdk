@@ -21,6 +21,7 @@ type elfFile struct {
 	order          binary.ByteOrder
 	class          elf.Class
 	sections       []elf.Section64
+	shstrndx       int
 	names          []byte
 	phoff          uint64
 	phnum          uint64
@@ -120,7 +121,8 @@ func readELF(ctx context.Context, src io.ReaderAt, size int64) (*elfFile, error)
 		}
 		f.sections[i] = s
 	}
-	str := f.sections[shstrndx]
+	f.shstrndx = int(shstrndx)
+	str := f.sections[f.shstrndx]
 	if str.Type != uint32(elf.SHT_STRTAB) || str.Flags&uint64(elf.SHF_COMPRESSED) != 0 || str.Size == 0 || str.Size > maxMetadataSize-shnum*64 {
 		return nil, fmt.Errorf("invalid or oversized section name table")
 	}

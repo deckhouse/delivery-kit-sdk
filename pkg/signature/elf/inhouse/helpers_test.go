@@ -3,8 +3,10 @@ package inhouse_test
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"debug/elf"
 	"encoding/binary"
+	"encoding/hex"
 	"encoding/json"
 	"io"
 	"os"
@@ -138,4 +140,108 @@ func (s *hookSigner) SignMessage(message io.Reader, opts ...sigstore.SignOption)
 	}
 	s.after()
 	return data, nil
+}
+
+func stringTableELF(class elf.Class, order binary.ByteOrder, shared bool) []byte {
+	data := minimalELF(class, order, elf.EM_X86_64)
+	names := []byte("\x00.text\x00.shstrtab\x00.strtab\x00.symtab\x00symbol\x00")
+	copy(data[320:], names)
+	s := testSectionHeader(data, 2)
+	s.Name, s.Size = 17, uint64(len(names))
+	putTestSection(data, 2, s)
+	if !shared {
+		return data
+	}
+	var symbols bytes.Buffer
+	var zero, symbol any = elf.Sym64{}, elf.Sym64{Name: 33, Info: 0x12, Shndx: 1, Value: 0x400100, Size: 4}
+	entrySize := 64
+	if class == elf.ELFCLASS32 {
+		zero, symbol, entrySize = elf.Sym32{}, elf.Sym32{Name: 33, Info: 0x12, Shndx: 1, Value: 0x400100, Size: 4}, 40
+		order.PutUint16(data[48:50], 4)
+	} else {
+		order.PutUint16(data[60:62], 4)
+	}
+	m.Expect(binary.Write(&symbols, order, zero)).To(m.Succeed())
+	m.Expect(binary.Write(&symbols, order, symbol)).To(m.Succeed())
+	offset := len(data) + entrySize
+	data = append(data, make([]byte, entrySize)...)
+	data = append(data, symbols.Bytes()...)
+	putTestSection(data, 3, elf.Section64{Name: 25, Type: uint32(elf.SHT_SYMTAB), Off: uint64(offset), Size: uint64(symbols.Len()), Link: 2, Info: 1, Addralign: 8, Entsize: uint64(binary.Size(symbol))})
+	return data
+}
+
+func testSectionHeader(data []byte, index int) elf.Section64 {
+	f := parseTestELF(data)
+	if f.Class == elf.ELFCLASS64 {
+		var s elf.Section64
+		offset := f.ByteOrder.Uint64(data[40:48]) + uint64(index)*64
+		m.Expect(binary.Read(bytes.NewReader(data[offset:]), f.ByteOrder, &s)).To(m.Succeed())
+		return s
+	}
+	var s elf.Section32
+	offset := f.ByteOrder.Uint32(data[32:36]) + uint32(index)*40
+	m.Expect(binary.Read(bytes.NewReader(data[offset:]), f.ByteOrder, &s)).To(m.Succeed())
+	return elf.Section64{Name: s.Name, Type: s.Type, Flags: uint64(s.Flags), Addr: uint64(s.Addr), Off: uint64(s.Off), Size: uint64(s.Size), Link: s.Link, Info: s.Info, Addralign: uint64(s.Addralign), Entsize: uint64(s.Entsize)}
+}
+
+func putTestSection(data []byte, index int, s elf.Section64) {
+	var order binary.ByteOrder = binary.LittleEndian
+	if data[elf.EI_DATA] == byte(elf.ELFDATA2MSB) {
+		order = binary.BigEndian
+	}
+	var out bytes.Buffer
+	var value any = s
+	offset := uint64(0)
+	if data[elf.EI_CLASS] == byte(elf.ELFCLASS32) {
+		offset = uint64(order.Uint32(data[32:36])) + uint64(index)*40
+		value = elf.Section32{Name: s.Name, Type: s.Type, Flags: uint32(s.Flags), Addr: uint32(s.Addr), Off: uint32(s.Off), Size: uint32(s.Size), Link: s.Link, Info: s.Info, Addralign: uint32(s.Addralign), Entsize: uint32(s.Entsize)}
+	} else {
+		offset = order.Uint64(data[40:48]) + uint64(index)*64
+	}
+	m.Expect(binary.Write(&out, order, value)).To(m.Succeed())
+	copy(data[offset:], out.Bytes())
+}
+
+func assertStringTablePreserved(before, after []byte) {
+	original, updated := parseTestELF(before), parseTestELF(after)
+	for i := 1; i < len(original.Sections); i++ {
+		m.Expect(testSectionHeader(after, i)).To(m.Equal(testSectionHeader(before, i)), "section %d", i)
+		m.Expect(updated.Sections[i].SectionHeader).To(m.Equal(original.Sections[i].SectionHeader))
+	}
+	if original.Section(".symtab") != nil {
+		symbols, err := original.Symbols()
+		m.Expect(err).NotTo(m.HaveOccurred())
+		m.Expect(symbols).To(m.HaveLen(1))
+		m.Expect(symbols[0].Name).To(m.Equal("symbol"))
+		actual, err := updated.Symbols()
+		m.Expect(err).NotTo(m.HaveOccurred())
+		m.Expect(actual).To(m.Equal(symbols))
+	}
+	assertLoadPreserved(before, after)
+}
+
+func referenceELFDigest(data []byte, order binary.ByteOrder) string {
+	f := parseTestELF(data)
+	h := sha256.New()
+	for _, p := range f.Progs {
+		var header [56]byte
+		order.PutUint32(header[:4], uint32(p.Type))
+		order.PutUint32(header[4:8], uint32(p.Flags))
+		_, err := h.Write(header[:])
+		m.Expect(err).NotTo(m.HaveOccurred())
+	}
+	for i, s := range f.Sections {
+		if i == 0 || s.Type == elf.SHT_NOBITS || s.Name == ".shstrtab" || s.Name == "signature" || s.Name == ".note.delivery-kit.signature" {
+			continue
+		}
+		var header [64]byte
+		order.PutUint32(header[:4], testSectionHeader(data, i).Name)
+		order.PutUint32(header[4:8], uint32(s.Type))
+		order.PutUint64(header[8:16], uint64(s.Flags))
+		_, err := h.Write(header[:])
+		m.Expect(err).NotTo(m.HaveOccurred())
+		_, err = h.Write(data[s.Offset : s.Offset+s.FileSize])
+		m.Expect(err).NotTo(m.HaveOccurred())
+	}
+	return hex.EncodeToString(h.Sum(nil))
 }
