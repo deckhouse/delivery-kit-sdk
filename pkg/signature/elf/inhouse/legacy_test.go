@@ -66,4 +66,32 @@ var _ = g.Describe("legacy ELF interoperability", g.Label("elf-legacy", "e2e"), 
 		g.Entry("ELF64 LE", elf.ELFCLASS64, binary.LittleEndian),
 		g.Entry("ELF64 BE", elf.ELFCLASS64, binary.BigEndian),
 	)
+	g.DescribeTable("Given inactive entries and unused geometry, when signing, then the native legacy digest and extractor remain compatible",
+		func(ctx g.SpecContext, class elf.Class, order binary.ByteOrder) {
+			sv := newSignerVerifier(ctx)
+			original := inactiveEntriesELF(class, order)
+			digest := referenceELFDigest(original, binary.NativeEndian)
+			for _, outside := range []bool{false, true} {
+				data := append([]byte(nil), original...)
+				if outside {
+					if class == elf.ELFCLASS32 {
+						order.PutUint32(data[88:92], ^uint32(0))
+					} else {
+						order.PutUint64(data[128:136], ^uint64(0))
+					}
+				}
+				path := writeELF(data)
+				m.Expect(string(legacyCommand(ctx, "hash", path))).To(m.Equal(digest))
+				m.Expect(inhouse.Sign(ctx, sv, path)).To(m.Succeed())
+				m.Expect(string(legacyCommand(ctx, "hash", path))).To(m.Equal(digest))
+				legacyVerify(ctx, path)
+				signed, err := inhouse.SignBytes(ctx, sv, data)
+				m.Expect(err).NotTo(m.HaveOccurred())
+				m.Expect(os.WriteFile(path, signed, 0o700)).To(m.Succeed())
+				m.Expect(string(legacyCommand(ctx, "hash", path))).To(m.Equal(digest))
+				legacyVerify(ctx, path)
+			}
+		},
+		g.Entry("ELF32 LE", elf.ELFCLASS32, binary.LittleEndian), g.Entry("ELF32 BE", elf.ELFCLASS32, binary.BigEndian), g.Entry("ELF64 LE", elf.ELFCLASS64, binary.LittleEndian), g.Entry("ELF64 BE", elf.ELFCLASS64, binary.BigEndian),
+	)
 })

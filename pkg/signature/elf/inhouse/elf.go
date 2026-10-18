@@ -123,12 +123,14 @@ func readELF(ctx context.Context, src io.ReaderAt, size int64) (*elfFile, error)
 	}
 	f.shstrndx = int(shstrndx)
 	str := f.sections[f.shstrndx]
-	if str.Type != uint32(elf.SHT_STRTAB) || str.Flags&uint64(elf.SHF_COMPRESSED) != 0 || str.Size == 0 || str.Size > maxMetadataSize-shnum*64 {
+	if str.Type != uint32(elf.SHT_STRTAB) || str.Flags&uint64(elf.SHF_COMPRESSED) != 0 || str.Size > maxMetadataSize-shnum*64 {
 		return nil, fmt.Errorf("invalid or oversized section name table")
 	}
-	f.names = make([]byte, int(str.Size))
-	if _, err := src.ReadAt(f.names, int64(str.Off)); err != nil {
-		return nil, fmt.Errorf("read section names: %w", err)
+	f.names = make([]byte, max(1, int(str.Size)))
+	if str.Size != 0 {
+		if _, err := src.ReadAt(f.names, int64(str.Off)); err != nil {
+			return nil, fmt.Errorf("read section names: %w", err)
+		}
 	}
 	if f.names[0] != 0 || f.names[len(f.names)-1] != 0 {
 		return nil, fmt.Errorf("unterminated section name table")
@@ -143,7 +145,7 @@ func readELF(ctx context.Context, src io.ReaderAt, size int64) (*elfFile, error)
 		if uint64(s.Name) >= uint64(len(f.names)) {
 			return nil, fmt.Errorf("section name outside table")
 		}
-		if f.named(s, signatureSectionName) {
+		if s.Type != uint32(elf.SHT_NULL) && f.named(s, signatureSectionName) {
 			if f.signatureIndex != 0 {
 				return nil, fmt.Errorf("duplicate signature section")
 			}
@@ -173,7 +175,7 @@ func readELF(ctx context.Context, src io.ReaderAt, size int64) (*elfFile, error)
 			if err != nil {
 				return nil, err
 			}
-			if !f.contains(p.Off, p.Filesz) {
+			if p.Type != uint32(elf.PT_NULL) && !f.contains(p.Off, p.Filesz) {
 				return nil, fmt.Errorf("program segment outside file")
 			}
 		}

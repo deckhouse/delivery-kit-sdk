@@ -171,16 +171,19 @@ func stringTableELF(class elf.Class, order binary.ByteOrder, shared bool) []byte
 }
 
 func testSectionHeader(data []byte, index int) elf.Section64 {
-	f := parseTestELF(data)
-	if f.Class == elf.ELFCLASS64 {
+	var order binary.ByteOrder = binary.LittleEndian
+	if data[elf.EI_DATA] == byte(elf.ELFDATA2MSB) {
+		order = binary.BigEndian
+	}
+	if data[elf.EI_CLASS] == byte(elf.ELFCLASS64) {
 		var s elf.Section64
-		offset := f.ByteOrder.Uint64(data[40:48]) + uint64(index)*64
-		m.Expect(binary.Read(bytes.NewReader(data[offset:]), f.ByteOrder, &s)).To(m.Succeed())
+		offset := order.Uint64(data[40:48]) + uint64(index)*64
+		m.Expect(binary.Read(bytes.NewReader(data[offset:]), order, &s)).To(m.Succeed())
 		return s
 	}
 	var s elf.Section32
-	offset := f.ByteOrder.Uint32(data[32:36]) + uint32(index)*40
-	m.Expect(binary.Read(bytes.NewReader(data[offset:]), f.ByteOrder, &s)).To(m.Succeed())
+	offset := order.Uint32(data[32:36]) + uint32(index)*40
+	m.Expect(binary.Read(bytes.NewReader(data[offset:]), order, &s)).To(m.Succeed())
 	return elf.Section64{Name: s.Name, Type: s.Type, Flags: uint64(s.Flags), Addr: uint64(s.Addr), Off: uint64(s.Off), Size: uint64(s.Size), Link: s.Link, Info: s.Info, Addralign: uint64(s.Addralign), Entsize: uint64(s.Entsize)}
 }
 
@@ -244,4 +247,45 @@ func referenceELFDigest(data []byte, order binary.ByteOrder) string {
 		m.Expect(err).NotTo(m.HaveOccurred())
 	}
 	return hex.EncodeToString(h.Sum(nil))
+}
+
+func unusedProgramELF(class elf.Class, order binary.ByteOrder, offset uint64) []byte {
+	data := minimalELF(class, order, elf.EM_X86_64)
+	var p bytes.Buffer
+	start := 120
+	if class == elf.ELFCLASS32 {
+		order.PutUint16(data[44:46], 2)
+		start = 84
+		m.Expect(binary.Write(&p, order, elf.Prog32{Type: uint32(elf.PT_NULL), Flags: 5, Off: uint32(offset), Filesz: 4})).To(m.Succeed())
+	} else {
+		order.PutUint16(data[56:58], 2)
+		m.Expect(binary.Write(&p, order, elf.Prog64{Type: uint32(elf.PT_NULL), Flags: 5, Off: offset, Filesz: 4})).To(m.Succeed())
+	}
+	copy(data[start:], p.Bytes())
+	return data
+}
+
+func inactiveEntriesELF(class elf.Class, order binary.ByteOrder) []byte {
+	data := unusedProgramELF(class, order, 256)
+	if class == elf.ELFCLASS32 {
+		order.PutUint16(data[48:50], 4)
+		data = append(data, make([]byte, 40)...)
+	} else {
+		order.PutUint16(data[60:62], 4)
+		data = append(data, make([]byte, 64)...)
+	}
+	putTestSection(data, 3, elf.Section64{Name: 1, Type: uint32(elf.SHT_NULL), Flags: 0x1234, Off: 180, Size: 4})
+	return data
+}
+
+func assertBundleDigest(ctx context.Context, data []byte, index int, digest string) {
+	s := testSectionHeader(data, index)
+	note := data[s.Off : s.Off+s.Size]
+	var order binary.ByteOrder = binary.LittleEndian
+	if data[elf.EI_DATA] == byte(elf.ELFDATA2MSB) {
+		order = binary.BigEndian
+	}
+	var bundle signature.Bundle
+	m.Expect(json.Unmarshal(note[36:36+order.Uint32(note[4:8])], &bundle)).To(m.Succeed())
+	m.Expect(signature.VerifyBundle(ctx, bundle, digest, []string{cert_utils.RootCABase64})).To(m.Succeed())
 }
