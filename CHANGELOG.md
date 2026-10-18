@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.3](https://github.com/deckhouse/delivery-kit-sdk/compare/v1.4.2...v1.4.3) (2026-10-18)
+
+
+### Bug Fixes
+
+* **elf:** preserve shared string tables when signing ([#112](https://github.com/deckhouse/delivery-kit-sdk/issues/112)) ([a9a932d](https://github.com/deckhouse/delivery-kit-sdk/commit/a9a932d0b5b7b6fc2f0a09531d2758c60aad2914))
+
 ## [1.4.2](https://github.com/deckhouse/delivery-kit-sdk/compare/v1.4.1...v1.4.2) (2026-09-22)
 
 
