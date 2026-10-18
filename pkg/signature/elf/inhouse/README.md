@@ -24,6 +24,21 @@ verification accepts both historical host orders. For extended program counts,
 the legacy hash visits `e_phnum` (65535) entries, while validation checks the full
 resolved table. Changing this would change existing signatures.
 
+Unused `PT_NULL` geometry is ignored during range validation, but its normalized
+header still contributes to the legacy digest. Inactive `SHT_NULL` entries are
+not live signature notes; they retain legacy name validation, name-based hash
+exclusions, and otherwise their header and raw-payload hash contributions.
+Undefined fields outside those legacy-readable names/ranges can still prevent
+signing; failures leave the input unchanged. Skipping all inactive entries would
+change existing signatures.
+
+An empty selected string table with only zero active name indexes is supported.
+Signing preserves its original zero-size header and selects a new name table.
+This extends accepted inputs beyond the former C implementation; it does not
+change the digest formula. A signature-name alias in an inactive entry is ignored
+regardless of its position, unlike the former extractor's ordering-dependent
+behavior.
+
 The digest is passed to the existing `signature.Sign` implementation. Key
 loading, signing algorithm, JSON bundle, certificates, trust roots, and
 cryptographic verification remain in the SDK's existing packages.
@@ -40,6 +55,12 @@ are not authenticated by this legacy contract. This migration does not change
 that coverage. It does not promise whole-file integrity.
 
 ## Re-signing and file writes
+
+When replacing an existing signature note, both signing APIs explicitly preserve
+its `SHF_GROUP` bit so an existing `SHT_GROUP` member list remains consistent.
+Other old flags are not carried forward; a newly added note has zero flags.
+This does not change the legacy digest formula, exclusions or note encoding.
+
 
 Signing is a no-op when the active note already contains a signature over the current native-order digest with the same certificate and chain. The existing signature is verified locally from that certificate; no remote signer call or root trust decision is needed. A stale signature, a different certificate or chain, or a legacy host-order note in an opposite-endian ELF is rewritten. A signer whose key no longer matches its certificate produces signatures that fail verification anyway, so the existing verifiable signature is kept rather than replaced with an unverifiable one.
 
