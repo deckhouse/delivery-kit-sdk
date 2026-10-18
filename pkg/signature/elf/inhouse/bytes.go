@@ -48,6 +48,7 @@ func SignBytes(ctx context.Context, signerVerifier *signver.SignerVerifier, imag
 	limit := uint64(len(image)) + 2*maxMetadataSize + uint64(len(note)) + 4096
 	signed, err := elfedit.SetSection(ctx, image, signatureSectionName, note, elfedit.SectionOptions{
 		Type: elf.SHT_NOTE, Alignment: 4, MaxOutputSize: limit,
+		PreserveSectionNameTable: !f.named(f.sections[f.shstrndx], ".shstrtab"),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("write signature section: %w", err)

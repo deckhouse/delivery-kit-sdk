@@ -63,6 +63,7 @@ func Sign(ctx context.Context, signerVerifier *signver.SignerVerifier, path stri
 	limit := uint64(info.Size()) + 2*maxMetadataSize + uint64(len(note)) + 4096
 	if err := elfedit.WriteSection(ctx, dst, src, info.Size(), signatureSectionName, note, elfedit.SectionOptions{
 		Type: elf.SHT_NOTE, Alignment: 4, MaxOutputSize: limit,
+		PreserveSectionNameTable: !f.named(f.sections[f.shstrndx], ".shstrtab"),
 	}); err != nil {
 		return fmt.Errorf("write signature section: %w", err)
 	}

@@ -45,7 +45,13 @@ Signing is a no-op when the active note already contains a signature over the cu
 
 `elfedit.WriteSection` streams from the open source into a distinct temporary
 file in the destination directory. It preserves existing section indexes and
-name offsets, so signing does not need the old objcopy retry. Before replacing
+name offsets, so signing does not need the old objcopy retry. When adding a
+signature section whose selected name table is not named `.shstrtab`, the editor
+preserves that table and appends a separate `.shstrtab`. This keeps the original
+digest unchanged even when
+section names and symbol strings share a hashed `.strtab`. An unrelated
+`.shstrtab` is retained; the ELF header selects the new table by index. Canonical
+name tables and existing signature replacements keep their previous layout rules. Before replacing
 the original, the SDK rechecks the digest and stored bundle, preserves Unix UID/GID, applies Linux ACLs/xattrs, restores the final file mode,
 checks the resulting metadata, syncs and closes the output, checks for a concurrent source replacement/change,
 and uses rename. The bundle read-back is defense against an incorrectly behaving editor, in addition to the independently checked digest identity. Failed work removes the temporary file. Symlink paths resolve
